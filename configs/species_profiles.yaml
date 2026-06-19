@@ -1,0 +1,42 @@
+# Species-specific NBD proposal profiles.
+# These are INITIAL PRIORS for the proposal generator, not final truth — the
+# boundary calibrator (segmentation/nbd_calibrator.py) refines them per corpus.
+# Thresholds match the validated SegregationProfile values from the prototype.
+
+human:
+  sample_rate: 16000
+  energy_threshold: 0.15      # word/pause onsets -> "hard" boundaries
+  spectral_threshold: 0.05    # phoneme/syllable changes -> "soft" boundaries
+  debounce_ms: 150.0          # merge boundaries closer than this
+  hop_ms: 10.0
+
+marmoset:
+  sample_rate: 48000
+  energy_threshold: 0.15
+  spectral_threshold: 0.05
+  debounce_ms: 30.0           # combinatorial — catch rapid syllables
+  hop_ms: 10.0
+
+bat:
+  sample_rate: 250000
+  energy_threshold: 0.20
+  spectral_threshold: 0.50    # holophrasic — absorb FM-sweep flux
+  debounce_ms: 200.0
+  hop_ms: 10.0
+
+# dolphin / corvid: provisional profiles (no species tokenizer trained yet —
+# see embedding_bank memory). NBD segmentation runs; token diagnostics await a
+# species VQ-VAE.
+dolphin:
+  sample_rate: 96000
+  energy_threshold: 0.15
+  spectral_threshold: 0.08    # tonal whistles
+  debounce_ms: 80.0
+  hop_ms: 10.0
+
+corvid:
+  sample_rate: 48000
+  energy_threshold: 0.15
+  spectral_threshold: 0.05
+  debounce_ms: 60.0
+  hop_ms: 10.0

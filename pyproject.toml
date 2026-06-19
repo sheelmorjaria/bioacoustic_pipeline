@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bioacoustic-pipeline"
+version = "0.1.0"
+description = "Falsifiable, multi-view pipeline for bioacoustic structure discovery."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Sheel Morjaria" }]
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "soundfile>=0.12",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+# Heavy backbones / probes — install only what you use.
+ml = [
+    "torch>=2.0",
+    "scikit-learn>=1.3",
+    "onnxruntime>=1.16",
+]
+foundation = [
+    "transformers>=4.40",
+    "huggingface-hub>=0.20",
+    # AVES v2 (esp-aves2-eat-bio) loads via `avex`, which pulls TensorFlow +
+    # torch upgrades — install in an ISOLATED environment:
+    #   pip install avex
+]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.4",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bioacoustic_pipeline"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+# Keep the prototype's lenient policy: ignore E402 (module-level import order
+# disrupted by sys.path setup); everything else enforced.
+ignore = ["E402"]

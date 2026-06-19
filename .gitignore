@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Data + caches (never commit audio, embeddings, or checkpoints)
+data/
+cache/
+*.h5
+*.hdf5
+*.zarr/
+*.lance
+checkpoints/
+*.ckpt
+*.pt
+*.onnx
+*.safetensors
+
+# Reports / outputs
+outputs/
+*.json.lock
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store

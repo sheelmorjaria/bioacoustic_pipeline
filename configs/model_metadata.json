@@ -1,0 +1,70 @@
+{
+  "_comment": "Ethological firewall registry. Parsed by embeddings/firewall.py and ingestion/manifest.py at load time. A model absent from this file, or requested for a forbidden_use, must hard-fail. text_supervision => retrieval-only; no model may do semantic_verdict (Track C biology only).",
+  "track_c_only_uses": ["semantic_verdict", "animal_meaning_claim"],
+  "models": {
+    "human_cpc_phonetic": {
+      "pretraining_domain": "human_speech",
+      "contains_human_speech": true,
+      "contains_text_supervision": false,
+      "allowed_use": ["embedding", "probe", "tokenize"],
+      "forbidden_use": ["verdict_weight", "semantic_verdict", "animal_meaning_claim"],
+      "applies_to_species": ["human"],
+      "source": "self-supervised CPC on LibriSpeech",
+      "notes": "within-corpus human adapter; do NOT transfer to animals"
+    },
+    "human_vqvae_large": {
+      "pretraining_domain": "human_speech",
+      "contains_human_speech": true,
+      "contains_text_supervision": false,
+      "allowed_use": ["tokenize"],
+      "forbidden_use": ["semantic_verdict", "animal_meaning_claim"],
+      "applies_to_species": ["human"],
+      "notes": "acoustic similarity classes, NOT word identity (Semantic Ceiling)"
+    },
+    "bat_cpc": {
+      "pretraining_domain": "egyptian_fruit_bat",
+      "contains_human_speech": false,
+      "contains_text_supervision": false,
+      "allowed_use": ["embedding", "probe", "tokenize"],
+      "forbidden_use": [],
+      "applies_to_species": ["bat"]
+    },
+    "biomae": {
+      "pretraining_domain": "egyptian_fruit_bat",
+      "contains_human_speech": false,
+      "contains_text_supervision": false,
+      "allowed_use": ["embedding", "probe", "affect"],
+      "forbidden_use": [],
+      "applies_to_species": ["bat"]
+    },
+    "aves": {
+      "pretraining_domain": "multi_taxa_bioacoustics",
+      "contains_human_speech": true,
+      "contains_text_supervision": false,
+      "allowed_use": ["embedding", "probe"],
+      "forbidden_use": ["semantic_verdict", "animal_meaning_claim"],
+      "applies_to_species": ["bat", "marmoset", "human", "dolphin", "corvid"],
+      "source": "esp-aves2-eat-bio (EAT, self-supervised); loads via avex"
+    },
+    "perch_2": {
+      "pretraining_domain": "multi_taxa_bioacoustics",
+      "contains_human_speech": false,
+      "contains_text_supervision": false,
+      "allowed_use": ["embedding", "probe"],
+      "forbidden_use": ["semantic_verdict", "animal_meaning_claim"],
+      "applies_to_species": ["bat", "marmoset", "human", "dolphin", "corvid"],
+      "source": "Perch 2.0; not on HF (Google/TF distribution)",
+      "notes": "adapter slot — requires separate loader"
+    },
+    "naturelm_audio": {
+      "pretraining_domain": "human_text_and_audio",
+      "contains_human_speech": true,
+      "contains_text_supervision": true,
+      "allowed_use": ["retrieval", "annotation_suggestion"],
+      "forbidden_use": ["verdict_weight", "semantic_verdict", "animal_meaning_claim", "tokenize", "embedding"],
+      "applies_to_species": ["human"],
+      "source": "EarthSpeciesProject/NatureLM-audio",
+      "notes": "text supervision = hidden linguistic leakage; retrieval-only"
+    }
+  }
+}
