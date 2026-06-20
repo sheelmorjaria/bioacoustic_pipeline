@@ -124,6 +124,12 @@ class DomainGateResult:
     disabled_axes: set[str] = field(default_factory=set)
     applicable_axes: set[str] = field(default_factory=set)
     confidence: float = 0.99
+    # Applicability mask (Phase 1): which metadata the corpus actually carries. The
+    # registry gates diagnostics on these (e.g. context_binding needs has_context).
+    has_timestamps: bool = False
+    has_context: bool = False
+    has_emitter: bool = False
+    has_addressee: bool = False
 
     @property
     def rejected(self) -> bool:
@@ -132,6 +138,11 @@ class DomainGateResult:
     @property
     def reason_detail(self) -> str:
         return "; ".join(self.reason) if self.reason else "domain gate rejected"
+
+    @property
+    def enabled_axes(self) -> set[str]:
+        """Axes neither domain-refused (disabled) nor data-starved (has_* gates)."""
+        return self.applicable_axes - self.disabled_axes
 
     def as_dict(self) -> dict:
         return {
@@ -144,6 +155,11 @@ class DomainGateResult:
             "reason": list(self.reason),
             "disabled_axes": sorted(self.disabled_axes),
             "applicable_axes": sorted(self.applicable_axes),
+            "enabled_axes": sorted(self.enabled_axes),
+            "has_timestamps": self.has_timestamps,
+            "has_context": self.has_context,
+            "has_emitter": self.has_emitter,
+            "has_addressee": self.has_addressee,
             "confidence": round(self.confidence, 3),
         }
 
@@ -196,6 +212,34 @@ def gate_clip(dataset: str, label: str | None = None) -> DomainGateResult:
 def gate_dataset(dataset: str) -> DomainGateResult:
     """Corpus-level gate decision (no per-clip label)."""
     return gate_clip(dataset, label=None)
+
+
+def gate_from_manifest(
+    dataset: str,
+    *,
+    has_timestamps: bool = False,
+    has_context: bool = False,
+    has_emitter: bool = False,
+    has_addressee: bool = False,
+    annotations: str | None = None,
+) -> DomainGateResult:
+    """Build the applicability-mask gate from a corpus manifest + available metadata.
+
+    Layers the ``has_*`` flags (which diagnostics the corpus's annotations permit) onto the
+    dataset-role gate. ESC-50 stays REJECTED with ethological axes disabled; an annotated
+    candidate carries its metadata flags so the registry can gate context_binding /
+    turn_structure on data availability rather than guessing.
+    """
+    g = gate_dataset(dataset)
+    g.has_timestamps = bool(has_timestamps)
+    g.has_context = bool(has_context)
+    g.has_emitter = bool(has_emitter)
+    g.has_addressee = bool(has_addressee)
+    # An annotation table present implies some social/behavioral metadata exists; the
+    # caller confirms the specific columns, but its presence is a soft positive signal.
+    if annotations:
+        g.has_context = g.has_context or True
+    return g
 
 
 def summarize_dataset(results: list[DomainGateResult]) -> dict:

@@ -50,6 +50,55 @@ def prf_at_tolerance(
     return PRF(prec, rec, f1, tp, fp, fn)
 
 
+def prf_one_to_one(
+    predicted: Sequence[float], gt: Sequence[float], tol: float = 50.0
+) -> PRF:
+    """One-to-one tolerance-matched precision/recall/F1.
+
+    Unlike ``prf_at_tolerance`` (many-to-many, which lets multiple predictions match
+    the same GT), this uses greedy closest-first matching: sort all (pred, GT) pairs
+    by distance, match the closest unused pair if within tolerance. Each prediction
+    matches at most one GT and vice versa. This prevents duplicate-TP inflation when
+    predictions cluster around the same GT boundary — essential for over-segmentation
+    benchmarks. Unmatched predictions = FP, unmatched GT = FN.
+    """
+    predicted = list(predicted)
+    gt = list(gt)
+    if not predicted or not gt:
+        tp = 0
+        fp = len(predicted)
+        fn = len(gt)
+        prec = tp / max(tp + fp, 1)
+        rec = tp / max(tp + fn, 1)
+        f1 = 2 * prec * rec / max(prec + rec, 1e-8)
+        return PRF(prec, rec, f1, tp, fp, fn)
+
+    # Build all (distance, pred_idx, gt_idx) pairs within tolerance, sorted closest-first.
+    pairs = []
+    pred_arr = np.asarray(predicted, dtype=float)
+    gt_arr = np.asarray(gt, dtype=float)
+    for i in range(len(predicted)):
+        diffs = np.abs(gt_arr - pred_arr[i])
+        for j in np.where(diffs <= tol)[0]:
+            pairs.append((float(diffs[j]), i, int(j)))
+    pairs.sort()
+
+    used_p: set[int] = set()
+    used_g: set[int] = set()
+    for _dist, i, j in pairs:
+        if i not in used_p and j not in used_g:
+            used_p.add(i)
+            used_g.add(j)
+
+    tp = len(used_p)
+    fp = len(predicted) - tp
+    fn = len(gt) - tp
+    prec = tp / max(tp + fp, 1)
+    rec = tp / max(tp + fn, 1)
+    f1 = 2 * prec * rec / max(prec + rec, 1e-8)
+    return PRF(prec, rec, f1, tp, fp, fn)
+
+
 @dataclass
 class MultiResolutionF1:
     word: PRF

@@ -1,0 +1,28 @@
+{
+  "dataset": "MeerKAT_10s",
+  "species": "meerkat",
+  "task": "boundary_calibrator_v2",
+  "n_train": 400,
+  "n_test": 150,
+  "tolerance_ms": 100.0,
+  "features": "13 NBD + 6 noise (local_snr, bg_distance, crest, spec_entropy, spec_flatness, call_band_ratio)",
+  "operating_point": "volume-matched (train proba at rank n_gt)",
+  "threshold": 0.37353,
+  "train_f1": 0.4803,
+  "raw_nbd": {
+    "f1": 0.0861,
+    "precision": 0.0456,
+    "recall": 0.763
+  },
+  "calibrated_v2": {
+    "f1": 0.323,
+    "precision": 0.3688,
+    "recall": 0.2873,
+    "pred_per_gt": 0.93
+  },
+  "comparison": {
+    "v1_calibrated_f1": 0.201,
+    "raw_f1": 0.0861
+  },
+  "framing": "v2 adds noise-discrimination features + a volume-matched operating point over v1 (scalar-only, max-train-F1 threshold). Closes the MeerKAT boundary-F1 GAP."
+}

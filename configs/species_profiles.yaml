@@ -40,3 +40,13 @@ corvid:
   spectral_threshold: 0.05
   debounce_ms: 60.0
   hop_ms: 10.0
+
+# Meerkat (Suricata suricatta) — MeerKAT_10s corpus, 8 kHz clips, timestamped call
+# labels. Low sample rate (calls are broadband/low); moderate floors + tight debounce
+# to separate close, rapid calls. Priors — boundary F1 vs call onsets validates them.
+meerkat:
+  sample_rate: 8000
+  energy_threshold: 0.08
+  spectral_threshold: 0.04
+  debounce_ms: 40.0
+  hop_ms: 10.0

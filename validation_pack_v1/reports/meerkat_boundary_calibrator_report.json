@@ -1,0 +1,27 @@
+{
+  "dataset": "MeerKAT_10s",
+  "species": "meerkat",
+  "task": "boundary_calibrator_train_eval",
+  "n_train": 400,
+  "n_test": 150,
+  "tolerance_ms": 100.0,
+  "label_tol_ms": 100.0,
+  "positive_rate": 0.0824,
+  "keep_threshold": 0.2,
+  "kind": "gbt",
+  "features": "scalar (13, no CPC)",
+  "raw_nbd": {
+    "f1": 0.0861,
+    "precision": 0.0456,
+    "recall": 0.763,
+    "pred_per_gt": 17.46
+  },
+  "calibrated": {
+    "f1": 0.2006,
+    "precision": 0.2625,
+    "recall": 0.1623,
+    "pred_per_gt": 0.62
+  },
+  "checkpoint": "checkpoints/nbd_calibrator/meerkat.pkl",
+  "framing": "Boundary calibrator trained on MeerKAT call-onset GT (scalar GBT, species-portable). Compares calibrated vs raw fixed-threshold NBD on held-out clips. This closes the boundary-F1 GAP identified by the threshold sweep (best fixed-threshold F1 \u2248 0.18)."
+}

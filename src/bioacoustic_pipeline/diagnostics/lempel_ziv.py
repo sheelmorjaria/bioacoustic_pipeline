@@ -22,6 +22,13 @@ class LZComplexity:
     normalized: float  # c_n / (n / log2(n)) — dimensionless
     structure_class: str  # combinatorial | holistic | mixed
 
+    def as_dict(self) -> dict:
+        return {
+            "c_n": self.c_n,
+            "normalized": round(self.normalized, 6),
+            "structure_class": self.structure_class,
+        }
+
 
 def _is_sublist(needle: list[int], hay: list[int]) -> bool:
     if not needle:

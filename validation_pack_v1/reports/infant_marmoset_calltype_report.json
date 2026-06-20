@@ -1,0 +1,281 @@
+{
+  "report": {
+    "schema_version": "1.0",
+    "species": "marmoset",
+    "overall_confidence": 0.862,
+    "validated_semantics": false,
+    "axes": {
+      "sequence_recombination": {
+        "level": "high",
+        "confidence": 1.0,
+        "evidence": "LZ complexity 3.202 (thresholds 0.30/0.60)"
+      },
+      "functional_aliasing": {
+        "level": "absent",
+        "confidence": 1.0,
+        "evidence": "alias density 4.1% NOT significant (p=1.000 >= 0.05) \u2014 consistent with chance"
+      },
+      "motif_structure": {
+        "level": "strong",
+        "confidence": 1.0,
+        "evidence": "601 significant motifs (null p=0.007)"
+      },
+      "call_unitization": {
+        "level": "holistic",
+        "confidence": 1.0,
+        "evidence": "0 hard / 0 soft boundaries (frac_soft=0.00)"
+      },
+      "context_binding": {
+        "level": "strong",
+        "confidence": 0.993,
+        "evidence": "token<->call-type nmi=0.267 chi2=3579 V=0.599 p=0.0066 [permutation null]"
+      },
+      "turn_structure": {
+        "level": "not_evaluable",
+        "confidence": 0.0,
+        "evidence": "NOT EVALUABLE [no_turn_data]: no individual-ID labels; turn structure not defined"
+      },
+      "acoustic_coherence": {
+        "level": "absent",
+        "confidence": 0.9,
+        "evidence": "no acoustic-fingerprint signal (enable run_pipeline(fingerprint=True))"
+      },
+      "semantic_validation": {
+        "level": "none",
+        "confidence": 1.0,
+        "evidence": "semantics require Track C (playback/receiver-response) biology; not inferable from acoustic tokens"
+      }
+    },
+    "falsification": [
+      {
+        "axis": "sequence_recombination",
+        "level": "high",
+        "confidence": 1.0,
+        "makes_positive_claim": true,
+        "falsification_tests": [
+          {
+            "label": "LZ complexity does not exceed within-file-shuffle null (p >= 0.05)",
+            "track": "null"
+          },
+          {
+            "label": "LZ collapses under colony/speaker-held-out replication",
+            "track": "replication"
+          },
+          {
+            "label": "complexity explained by recording-device or session identity",
+            "track": "confound"
+          }
+        ]
+      },
+      {
+        "axis": "functional_aliasing",
+        "level": "absent",
+        "confidence": 1.0,
+        "makes_positive_claim": false,
+        "falsification_tests": [
+          {
+            "label": "alias density does not exceed within-file-shuffle null (p >= 0.05)",
+            "track": "null"
+          },
+          {
+            "label": "alias groups dissolve under cross-file (global-unigram) null",
+            "track": "null"
+          },
+          {
+            "label": "alias edges unstable under bootstrap (survival < 0.5)",
+            "track": "null"
+          },
+          {
+            "label": "alias structure explained by speaker/session, not syntactic role",
+            "track": "confound"
+          },
+          {
+            "label": "playback alias substitution yields no receiver-equivalent response",
+            "track": "biology"
+          }
+        ]
+      },
+      {
+        "axis": "motif_structure",
+        "level": "strong",
+        "confidence": 1.0,
+        "makes_positive_claim": true,
+        "falsification_tests": [
+          {
+            "label": "motif support does not exceed shuffled-token null (p >= 0.05)",
+            "track": "null"
+          },
+          {
+            "label": "motifs dissolve under file/session-held-out replication",
+            "track": "replication"
+          },
+          {
+            "label": "motifs explained by token frequency, not sequential structure",
+            "track": "confound"
+          }
+        ]
+      },
+      {
+        "axis": "call_unitization",
+        "level": "holistic",
+        "confidence": 1.0,
+        "makes_positive_claim": true,
+        "falsification_tests": [
+          {
+            "label": "hard/soft mix flips under NBD threshold recalibration",
+            "track": "null"
+          },
+          {
+            "label": "mix unstable across recording sessions/devices",
+            "track": "confound"
+          },
+          {
+            "label": "expert-annotated unit boundaries disagree with NBD boundaries",
+            "track": "biology"
+          }
+        ]
+      },
+      {
+        "axis": "context_binding",
+        "level": "strong",
+        "confidence": 0.993,
+        "makes_positive_claim": true,
+        "falsification_tests": [
+          {
+            "label": "context-bound n-grams do not exceed shuffled-context null",
+            "track": "null"
+          },
+          {
+            "label": "patterns confined to one recording session/device",
+            "track": "confound"
+          }
+        ]
+      },
+      {
+        "axis": "turn_structure",
+        "level": "not_evaluable",
+        "confidence": 0.0,
+        "makes_positive_claim": false,
+        "falsification_tests": [
+          {
+            "label": "turn bigrams explained by overlap/co-occurrence chance, not syntax",
+            "track": "null"
+          },
+          {
+            "label": "rhythmic entrainment disappears in held-out dyads/colonies",
+            "track": "replication"
+          }
+        ]
+      },
+      {
+        "axis": "acoustic_coherence",
+        "level": "absent",
+        "confidence": 0.9,
+        "makes_positive_claim": false,
+        "falsification_tests": [
+          {
+            "label": "token-fingerprint coherence does not exceed shuffled-label null (p >= 0.05)",
+            "track": "null"
+          },
+          {
+            "label": "coherence collapses under file/session-held-out replication",
+            "track": "replication"
+          },
+          {
+            "label": "tokens cluster by speaker/session/device, not by acoustic class",
+            "track": "confound"
+          }
+        ]
+      },
+      {
+        "axis": "semantic_validation",
+        "level": "none",
+        "confidence": 1.0,
+        "makes_positive_claim": true,
+        "falsification_tests": [
+          {
+            "label": "(universal) no acoustic token stream establishes meaning without Track C biology",
+            "track": "biology"
+          }
+        ]
+      }
+    ]
+  },
+  "trace": {
+    "species": "marmoset",
+    "representation": "fingerprint",
+    "k": 64,
+    "n_calls": 2497,
+    "call_type_counts": {
+      "Phee": 499,
+      "Twitter": 500,
+      "Trill": 498,
+      "Tsik": 500,
+      "Seep": 500
+    },
+    "codes_used": 64,
+    "n_sessions": 99,
+    "sufficiency": {
+      "status": "evaluable",
+      "reason": null,
+      "reason_detail": "",
+      "median_tokens_per_bout": 25.0,
+      "nonzero_bout_rate": 1.0,
+      "total_tokens": 2495,
+      "total_bigrams": 2396,
+      "total_trigrams": 2297,
+      "usable_bout_count": 99,
+      "n_bouts": 99,
+      "thresholds": {
+        "min_nonzero_bout_rate": 0.8,
+        "min_median_tokens_per_bout": 2.0,
+        "min_total_bigrams": 500
+      }
+    },
+    "context_binding": {
+      "label_name": "",
+      "n_bouts": 2497,
+      "n_tokens": 2497,
+      "n_label_values": 5,
+      "n_token_values": 64,
+      "observed_mi": 0.666458,
+      "observed_nmi": 0.267177,
+      "observed_chi2": 3578.881,
+      "cramers_v": 0.5986,
+      "statistic": "nmi",
+      "null_mean": 0.021362,
+      "null_std": 0.001659,
+      "p_value": 0.0066,
+      "z_score": 148.137,
+      "n_permutations": 150,
+      "null_type": "global",
+      "q_value": null,
+      "significant": true
+    },
+    "call_type_probe": {
+      "accuracy": 0.816,
+      "chance_baseline": 0.2,
+      "lift_over_chance": 4.08,
+      "n_train": 1747,
+      "n_test": 750,
+      "n_classes": 5,
+      "signal_exists": true
+    },
+    "alias": {
+      "density": 0.0408,
+      "n_groups": 1,
+      "per_null_p": {
+        "within_file": 0.0927,
+        "frequency": 0.0132,
+        "within_emitter": 1.0
+      },
+      "effective_p": 1.0
+    },
+    "motif": {
+      "n_motifs": 601,
+      "motif_null_p": 0.0066
+    },
+    "lz": 3.2023,
+    "schema_valid": true
+  }
+}

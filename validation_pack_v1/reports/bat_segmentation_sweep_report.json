@@ -1,0 +1,370 @@
+{
+  "n_bouts": 500,
+  "bout_duration_ms": {
+    "median": 1440.6,
+    "mean": 1749.3
+  },
+  "profiles": {
+    "bat_holophrastic": {
+      "sample_rate": 250000,
+      "hop_ms": 10.0,
+      "energy_threshold": 0.2,
+      "spectral_threshold": 0.5,
+      "debounce_ms": 200.0,
+      "spectral_drop_threshold": Infinity,
+      "description": "current conservative call-level prior",
+      "segments_per_bout_mean": 0.84,
+      "segments_per_bout_median": 0.0,
+      "nonzero_bout_rate": 0.426,
+      "segment_duration_ms": {
+        "p10": 210.0,
+        "p50": 360.0,
+        "p90": 872.0
+      },
+      "boundary_mix": {
+        "hard": 0.432,
+        "soft": 0.401,
+        "transitional": 0.167
+      },
+      "sufficiency": {
+        "status": "not_evaluable",
+        "reason": "segmentation_collapse",
+        "reason_detail": "segmentation collapsed most bouts to zero tokens \u2014 no sequence to test",
+        "median_tokens_per_bout": 0.0,
+        "nonzero_bout_rate": 0.426,
+        "total_tokens": 419,
+        "total_bigrams": 206,
+        "total_trigrams": 108,
+        "usable_bout_count": 98,
+        "n_bouts": 500,
+        "thresholds": {
+          "min_nonzero_bout_rate": 0.8,
+          "min_median_tokens_per_bout": 2.0,
+          "min_total_bigrams": 500
+        }
+      },
+      "call_like": false
+    },
+    "bat_call_granular": {
+      "sample_rate": 250000,
+      "hop_ms": 10.0,
+      "energy_threshold": 0.05,
+      "spectral_threshold": 0.05,
+      "debounce_ms": 25.0,
+      "spectral_drop_threshold": Infinity,
+      "description": "individual calls inside bouts (candidate)",
+      "segments_per_bout_mean": 9.95,
+      "segments_per_bout_median": 7.0,
+      "nonzero_bout_rate": 0.962,
+      "segment_duration_ms": {
+        "p10": 20.0,
+        "p50": 50.0,
+        "p90": 160.0
+      },
+      "boundary_mix": {
+        "hard": 0.462,
+        "soft": 0.48,
+        "transitional": 0.058
+      },
+      "sufficiency": {
+        "status": "evaluable",
+        "reason": null,
+        "reason_detail": "",
+        "median_tokens_per_bout": 7.0,
+        "nonzero_bout_rate": 0.962,
+        "total_tokens": 4974,
+        "total_bigrams": 4493,
+        "total_trigrams": 4050,
+        "usable_bout_count": 443,
+        "n_bouts": 500,
+        "thresholds": {
+          "min_nonzero_bout_rate": 0.8,
+          "min_median_tokens_per_bout": 2.0,
+          "min_total_bigrams": 500
+        }
+      },
+      "call_like": true
+    },
+    "bat_granular_drop010": {
+      "sample_rate": 250000,
+      "hop_ms": 10.0,
+      "energy_threshold": 0.05,
+      "spectral_threshold": 0.05,
+      "debounce_ms": 25.0,
+      "spectral_drop_threshold": 0.1,
+      "description": "granular + fire-on-drop 0.10",
+      "segments_per_bout_mean": 10.96,
+      "segments_per_bout_median": 7.0,
+      "nonzero_bout_rate": 0.986,
+      "segment_duration_ms": {
+        "p10": 20.0,
+        "p50": 40.0,
+        "p90": 140.0
+      },
+      "boundary_mix": {
+        "hard": 0.38,
+        "soft": 0.526,
+        "transitional": 0.093
+      },
+      "sufficiency": {
+        "status": "evaluable",
+        "reason": null,
+        "reason_detail": "",
+        "median_tokens_per_bout": 7.0,
+        "nonzero_bout_rate": 0.986,
+        "total_tokens": 5479,
+        "total_bigrams": 4986,
+        "total_trigrams": 4532,
+        "usable_bout_count": 454,
+        "n_bouts": 500,
+        "thresholds": {
+          "min_nonzero_bout_rate": 0.8,
+          "min_median_tokens_per_bout": 2.0,
+          "min_total_bigrams": 500
+        }
+      },
+      "call_like": true
+    },
+    "bat_granular_drop015": {
+      "sample_rate": 250000,
+      "hop_ms": 10.0,
+      "energy_threshold": 0.05,
+      "spectral_threshold": 0.05,
+      "debounce_ms": 25.0,
+      "spectral_drop_threshold": 0.15,
+      "description": "granular + fire-on-drop 0.15",
+      "segments_per_bout_mean": 10.88,
+      "segments_per_bout_median": 7.0,
+      "nonzero_bout_rate": 0.986,
+      "segment_duration_ms": {
+        "p10": 20.0,
+        "p50": 40.0,
+        "p90": 140.0
+      },
+      "boundary_mix": {
+        "hard": 0.379,
+        "soft": 0.524,
+        "transitional": 0.096
+      },
+      "sufficiency": {
+        "status": "evaluable",
+        "reason": null,
+        "reason_detail": "",
+        "median_tokens_per_bout": 7.0,
+        "nonzero_bout_rate": 0.986,
+        "total_tokens": 5441,
+        "total_bigrams": 4948,
+        "total_trigrams": 4495,
+        "usable_bout_count": 453,
+        "n_bouts": 500,
+        "thresholds": {
+          "min_nonzero_bout_rate": 0.8,
+          "min_median_tokens_per_bout": 2.0,
+          "min_total_bigrams": 500
+        }
+      },
+      "call_like": true
+    },
+    "bat_granular_drop025": {
+      "sample_rate": 250000,
+      "hop_ms": 10.0,
+      "energy_threshold": 0.05,
+      "spectral_threshold": 0.05,
+      "debounce_ms": 25.0,
+      "spectral_drop_threshold": 0.25,
+      "description": "granular + fire-on-drop 0.25",
+      "segments_per_bout_mean": 10.86,
+      "segments_per_bout_median": 7.0,
+      "nonzero_bout_rate": 0.986,
+      "segment_duration_ms": {
+        "p10": 20.0,
+        "p50": 40.0,
+        "p90": 140.0
+      },
+      "boundary_mix": {
+        "hard": 0.383,
+        "soft": 0.524,
+        "transitional": 0.092
+      },
+      "sufficiency": {
+        "status": "evaluable",
+        "reason": null,
+        "reason_detail": "",
+        "median_tokens_per_bout": 7.0,
+        "nonzero_bout_rate": 0.986,
+        "total_tokens": 5428,
+        "total_bigrams": 4935,
+        "total_trigrams": 4480,
+        "usable_bout_count": 455,
+        "n_bouts": 500,
+        "thresholds": {
+          "min_nonzero_bout_rate": 0.8,
+          "min_median_tokens_per_bout": 2.0,
+          "min_total_bigrams": 500
+        }
+      },
+      "call_like": true
+    },
+    "bat_microcall": {
+      "sample_rate": 250000,
+      "hop_ms": 10.0,
+      "energy_threshold": 0.02,
+      "spectral_threshold": 0.02,
+      "debounce_ms": 15.0,
+      "spectral_drop_threshold": Infinity,
+      "description": "sub-call acoustic structure",
+      "segments_per_bout_mean": 16.37,
+      "segments_per_bout_median": 12.0,
+      "nonzero_bout_rate": 0.994,
+      "segment_duration_ms": {
+        "p10": 10.0,
+        "p50": 40.0,
+        "p90": 120.0
+      },
+      "boundary_mix": {
+        "hard": 0.388,
+        "soft": 0.58,
+        "transitional": 0.032
+      },
+      "sufficiency": {
+        "status": "evaluable",
+        "reason": null,
+        "reason_detail": "",
+        "median_tokens_per_bout": 12.0,
+        "nonzero_bout_rate": 0.994,
+        "total_tokens": 8185,
+        "total_bigrams": 7688,
+        "total_trigrams": 7220,
+        "usable_bout_count": 468,
+        "n_bouts": 500,
+        "thresholds": {
+          "min_nonzero_bout_rate": 0.8,
+          "min_median_tokens_per_bout": 2.0,
+          "min_total_bigrams": 500
+        }
+      },
+      "call_like": true
+    },
+    "bat_energy_only": {
+      "sample_rate": 250000,
+      "hop_ms": 10.0,
+      "energy_threshold": 0.05,
+      "spectral_threshold": 2.0,
+      "debounce_ms": 25.0,
+      "spectral_drop_threshold": Infinity,
+      "description": "pause/onset (energy) baseline",
+      "segments_per_bout_mean": 5.99,
+      "segments_per_bout_median": 3.0,
+      "nonzero_bout_rate": 0.852,
+      "segment_duration_ms": {
+        "p10": 20.0,
+        "p50": 60.0,
+        "p90": 240.0
+      },
+      "boundary_mix": {
+        "hard": 1.0,
+        "soft": 0.0,
+        "transitional": 0.0
+      },
+      "sufficiency": {
+        "status": "evaluable",
+        "reason": null,
+        "reason_detail": "",
+        "median_tokens_per_bout": 3.0,
+        "nonzero_bout_rate": 0.852,
+        "total_tokens": 2995,
+        "total_bigrams": 2569,
+        "total_trigrams": 2219,
+        "usable_bout_count": 350,
+        "n_bouts": 500,
+        "thresholds": {
+          "min_nonzero_bout_rate": 0.8,
+          "min_median_tokens_per_bout": 2.0,
+          "min_total_bigrams": 500
+        }
+      },
+      "call_like": false
+    },
+    "bat_spectral_only": {
+      "sample_rate": 250000,
+      "hop_ms": 10.0,
+      "energy_threshold": 2.0,
+      "spectral_threshold": 0.05,
+      "debounce_ms": 25.0,
+      "spectral_drop_threshold": Infinity,
+      "description": "FM/spectral-change baseline",
+      "segments_per_bout_mean": 5.91,
+      "segments_per_bout_median": 4.0,
+      "nonzero_bout_rate": 0.868,
+      "segment_duration_ms": {
+        "p10": 30.0,
+        "p50": 100.0,
+        "p90": 290.0
+      },
+      "boundary_mix": {
+        "hard": 0.0,
+        "soft": 1.0,
+        "transitional": 0.0
+      },
+      "sufficiency": {
+        "status": "evaluable",
+        "reason": null,
+        "reason_detail": "",
+        "median_tokens_per_bout": 4.0,
+        "nonzero_bout_rate": 0.868,
+        "total_tokens": 2955,
+        "total_bigrams": 2521,
+        "total_trigrams": 2146,
+        "usable_bout_count": 375,
+        "n_bouts": 500,
+        "thresholds": {
+          "min_nonzero_bout_rate": 0.8,
+          "min_median_tokens_per_bout": 2.0,
+          "min_total_bigrams": 500
+        }
+      },
+      "call_like": false
+    },
+    "bat_metadata_bout": {
+      "sample_rate": 250000,
+      "hop_ms": 10.0,
+      "energy_threshold": 0.0,
+      "spectral_threshold": 0.0,
+      "debounce_ms": 1000000000.0,
+      "spectral_drop_threshold": Infinity,
+      "description": "one segment per file (neg control)",
+      "segments_per_bout_mean": 0.0,
+      "segments_per_bout_median": 0.0,
+      "nonzero_bout_rate": 0.0,
+      "segment_duration_ms": {
+        "p10": 0.0,
+        "p50": 0.0,
+        "p90": 0.0
+      },
+      "boundary_mix": {
+        "hard": 0.0,
+        "soft": 0.0,
+        "transitional": 0.0
+      },
+      "sufficiency": {
+        "status": "not_evaluable",
+        "reason": "segmentation_collapse",
+        "reason_detail": "segmentation collapsed most bouts to zero tokens \u2014 no sequence to test",
+        "median_tokens_per_bout": 0.0,
+        "nonzero_bout_rate": 0.0,
+        "total_tokens": 0,
+        "total_bigrams": 0,
+        "total_trigrams": 0,
+        "usable_bout_count": 0,
+        "n_bouts": 500,
+        "thresholds": {
+          "min_nonzero_bout_rate": 0.8,
+          "min_median_tokens_per_bout": 2.0,
+          "min_total_bigrams": 500
+        }
+      },
+      "call_like": false
+    }
+  },
+  "recommended": "bat_call_granular"
+}

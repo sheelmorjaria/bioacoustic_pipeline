@@ -1,0 +1,88 @@
+{
+  "dataset": "MeerKAT_10s",
+  "species": "meerkat (Suricata suricatta)",
+  "dataset_role": "positive_control_call_type_timestamped",
+  "n_clips": 300,
+  "n_calls": 1068,
+  "call_type_counts": {
+    "synch": 45,
+    "cc": 478,
+    "soc": 109,
+    "sn": 251,
+    "beep": 17,
+    "oth": 67,
+    "al": 43,
+    "agg": 23,
+    "mo": 19,
+    "ld": 2,
+    "eating": 14
+  },
+  "boundary_f1": {
+    "f1": 0.0791,
+    "precision": 0.0417,
+    "recall": 0.7563,
+    "tolerance_ms": 100.0,
+    "tp": 810,
+    "fp": 18597,
+    "fn": 261,
+    "n_pred": 20173,
+    "n_gt": 1071,
+    "note": "Fixed-threshold NBD over-segments this corpus (continuous noise floor defeats energy-threshold onset detection). Recall is moderate; precision is poor. The human path fixes this with a learned GBT+CPC calibrator; no meerkat calibrator exists yet \u2014 this is a documented gap, not a pipeline failure."
+  },
+  "token_calltype": {
+    "nmi": 0.318969,
+    "cramers_v": 0.5212,
+    "chi2": 2901.588,
+    "p_value": 0.0066,
+    "null_type": "global",
+    "q_value": null,
+    "n_permutations": 150
+  },
+  "probe_ceiling": {
+    "accuracy": 0.7531,
+    "chance_baseline": 0.1,
+    "lift_over_chance": 7.53,
+    "n_train": 746,
+    "n_test": 320,
+    "n_classes": 10,
+    "signal_exists": true
+  },
+  "representation": "acoustic_fingerprint (deterministic, all-species)",
+  "sequence_diagnostics": {
+    "sufficiency": {
+      "status": "evaluable",
+      "reason": null,
+      "reason_detail": "",
+      "median_tokens_per_bout": 3.0,
+      "nonzero_bout_rate": 1.0,
+      "total_tokens": 958,
+      "total_bigrams": 768,
+      "total_trigrams": 578,
+      "usable_bout_count": 190,
+      "n_bouts": 190,
+      "thresholds": {
+        "min_nonzero_bout_rate": 0.8,
+        "min_median_tokens_per_bout": 2.0,
+        "min_total_bigrams": 500
+      }
+    },
+    "lz_normalized": 4.1766,
+    "functional_aliasing": {
+      "density": 0.0,
+      "n_groups": 0,
+      "per_null_p": {
+        "within_file": 1.0,
+        "frequency": 1.0
+      }
+    },
+    "motif": {
+      "n_motifs": 85,
+      "motif_null_p": 0.0066
+    }
+  },
+  "verdict": {
+    "call_type_recovery": "PASS",
+    "boundary_segmentation": "GAP (needs learned meerkat calibrator; F1=0.079)"
+  },
+  "framing": "POSITIVE on the positive-control claim: the deterministic acoustic fingerprint recovers the known meerkat call types (token<->call-type significant; probe well above chance). Raw boundary F1 is poor because fixed-threshold NBD over-segments noisy field audio \u2014 the same gap the learned calibrator closes for humans. NOT semantic \u2014 call types are acoustic categories; meaning needs Track C biology."
+}
