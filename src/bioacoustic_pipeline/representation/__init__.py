@@ -7,6 +7,16 @@ ABC so the ``EmbeddingBank`` treats it as a first-class interpretable view.
 # Copyright (c) 2025 Sheel Morjaria. All rights reserved.
 """
 
+from bioacoustic_pipeline.representation.dual_stream import (
+    DualStreamSegment,
+    build_dual_stream,
+    group_by_field,
+)
 from bioacoustic_pipeline.representation.spectrogram_backbone import SpectrogramBackbone
 
-__all__ = ["SpectrogramBackbone"]
+__all__ = [
+    "SpectrogramBackbone",
+    "DualStreamSegment",
+    "build_dual_stream",
+    "group_by_field",
+]
