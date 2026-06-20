@@ -26,3 +26,15 @@ def normalize(audio: np.ndarray) -> np.ndarray:
     """Peak-normalize to [-1, 1]."""
     peak = float(np.abs(audio).max())
     return audio / peak if peak > 0 else audio
+
+
+def write_audio(path: str, audio: np.ndarray, sr: int, subtype: str = "FLOAT") -> None:
+    """Write a mono float audio array to WAV (creating parent dirs).
+
+    ``FLOAT`` subtype stores float32 losslessly so round-tripped stimuli stay bit-stable.
+    """
+    from pathlib import Path  # noqa: PLC0415
+
+    out = Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    sf.write(str(out), np.asarray(audio), sr, subtype=subtype)

@@ -38,6 +38,7 @@ class EvidenceProfile:
 
     species: str
     axes: dict[str, AxisResult] = field(default_factory=dict)
+    domain: dict | None = None  # domain-gate block (None for an un-gated communication run)
 
     @property
     def validated_semantics(self) -> bool:
@@ -47,12 +48,15 @@ class EvidenceProfile:
 
     @property
     def overall_confidence(self) -> float:
-        if not self.axes:
+        # not_applicable axes (domain-gate refusals) are abstentions, not measurements —
+        # exclude them. Other axes (incl. not_evaluable) keep their confidence.
+        scored = [a for a in self.axes.values() if a.level != "not_applicable"]
+        if not scored:
             return 0.0
-        return sum(a.confidence for a in self.axes.values()) / len(self.axes)
+        return sum(a.confidence for a in scored) / len(scored)
 
     def as_dict(self) -> dict:
-        return {
+        out = {
             "species": self.species,
             "overall_confidence": round(self.overall_confidence, 3),
             "validated_semantics": self.validated_semantics,
@@ -65,6 +69,9 @@ class EvidenceProfile:
                 for k, v in self.axes.items()
             },
         }
+        if self.domain is not None:
+            out["domain"] = self.domain
+        return out
 
     def summary(self) -> str:
         lines = [
@@ -89,6 +96,22 @@ def _not_evaluable_axis(name: str, reason_detail: str, reason_code: str | None =
     return AxisResult(
         name, NOT_EVALUABLE, 0.0,
         f"NOT EVALUABLE{code}: {reason_detail or 'sequence input too sparse to test'}",
+    )
+
+
+NOT_APPLICABLE = "not_applicable"
+
+
+def _not_applicable_axis(name: str, reason_detail: str) -> AxisResult:
+    """A domain-gate refusal: the axis is not interpretable for this corpus's domain.
+
+    Distinct from not_evaluable: not_evaluable = "could not compute (sparse data)";
+    not_applicable = "refuse to interpret (wrong domain — e.g. environmental sound,
+    not animal communication)". Never a biological null or a claim.
+    """
+    return AxisResult(
+        name, NOT_APPLICABLE, 0.0,
+        f"NOT APPLICABLE: {reason_detail}",
     )
 
 
@@ -246,6 +269,7 @@ def compute_evidence_profile(
     context_reason: str | None = None,
     turn_evaluable: bool = True,
     turn_reason: str | None = None,
+    domain_gate=None,
 ) -> EvidenceProfile:
     """Assemble all eight axes from primitive signals.
 
@@ -277,4 +301,22 @@ def compute_evidence_profile(
             "turn_structure", turn_reason or "no multi-emitter turn data", "no_turn_data")
     p.axes["acoustic_coherence"] = score_acoustic_coherence(token_coherence, alias_acoustic_divergence)
     p.axes["semantic_validation"] = score_semantic_validation(semantic_status)
+
+    # Domain gate: if the corpus is rejected for bioacoustic-communication inference
+    # (e.g. ESC-50 environmental sound), REFUSE the ethological-interpretation axes —
+    # not_applicable, not a biological null. Acoustic/structural axes stay scored.
+    if domain_gate is not None and getattr(domain_gate, "rejected", False):
+        reason = getattr(domain_gate, "reason_detail", "domain gate rejected communication inference")
+        for ax in getattr(domain_gate, "disabled_axes", ()):
+            if ax in p.axes:
+                p.axes[ax] = _not_applicable_axis(ax, reason)
+        p.domain = {
+            "dataset": getattr(domain_gate, "dataset", ""),
+            "dataset_role": getattr(domain_gate, "dataset_role", ""),
+            "verdict": getattr(domain_gate, "dataset_verdict", ""),
+            "communication_status": getattr(domain_gate, "communication_status", ""),
+            "clip_verdict": getattr(domain_gate, "verdict", ""),
+            "source_type": getattr(domain_gate, "source_type", ""),
+            "reason": list(getattr(domain_gate, "reason", []) or []),
+        }
     return p

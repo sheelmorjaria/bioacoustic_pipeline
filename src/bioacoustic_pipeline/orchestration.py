@@ -23,6 +23,10 @@ import numpy as np
 from bioacoustic_pipeline.diagnostics.lempel_ziv import lempel_ziv_complexity
 from bioacoustic_pipeline.diagnostics.sequence_sufficiency import evaluate_sufficiency
 from bioacoustic_pipeline.embeddings.firewall import Use, default_firewall
+from bioacoustic_pipeline.embeddings.segment_representation import (
+    SegmentSource,
+    assert_compatible,
+)
 from bioacoustic_pipeline.ingestion.manifest import load_species_profiles
 from bioacoustic_pipeline.segmentation.nbd_calibrator import (
     BoundaryCalibrator,
@@ -43,8 +47,14 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 CALIBRATOR_PROPOSAL = {"floor_energy": 0.04, "floor_flux": 0.02, "debounce_ms": 25.0}
 
 
-def synthesize_signals(tokens, boundary_types, sequences=None, with_null=False) -> dict:
-    """Reduce raw stage outputs to the verdict engine's primitive signals."""
+def synthesize_signals(
+    tokens, boundary_types, sequences=None, with_null=False, seed: int = 0
+) -> dict:
+    """Reduce raw stage outputs to the verdict engine's primitive signals.
+
+    ``seed`` threads into the alias permutation null so the seeded-stochastic
+    diagnostics are explicit and reproducible (default 0 matches prior behavior).
+    """
     lz = lempel_ziv_complexity(list(tokens)[:5000]).normalized
     n_hard = sum(1 for b in boundary_types if b == "hard")
     n_soft = sum(1 for b in boundary_types if b == "soft")
@@ -65,14 +75,12 @@ def synthesize_signals(tokens, boundary_types, sequences=None, with_null=False) 
             )
 
             def _density(seqs):
-                r = detect_functional_aliases(
-                    seqs, similarity_threshold=0.80, min_instances=10
-                )
+                r = detect_functional_aliases(seqs, similarity_threshold=0.80, min_instances=10)
                 e = len(r.singleton_tokens) + r.n_merged
                 return r.n_merged / max(e, 1)
 
             alias_pvalue = permutation_test(
-                sequences, _density, within_file_shuffle, n_permutations=100
+                sequences, _density, within_file_shuffle, n_permutations=100, seed=seed
             ).p_value
 
     return {
@@ -85,16 +93,19 @@ def synthesize_signals(tokens, boundary_types, sequences=None, with_null=False) 
     }
 
 
-def run_report(species, tokens, boundary_types, sequences=None, with_null=False) -> dict:
+def run_report(
+    species, tokens, boundary_types, sequences=None, with_null=False, seed: int = 0
+) -> dict:
     """Assemble + self-validate the canonical verdict report."""
-    return build_report(species, **synthesize_signals(
-        tokens, boundary_types, sequences, with_null
-    ))
+    return build_report(
+        species, **synthesize_signals(tokens, boundary_types, sequences, with_null, seed=seed)
+    )
 
 
 # --------------------------------------------------------------------------- #
 # Raw-audio end-to-end path
 # --------------------------------------------------------------------------- #
+
 
 @dataclass
 class Segment:
@@ -108,7 +119,7 @@ class Segment:
     sr: int
     # Opt-in physics-grounded descriptor (acoustic_fingerprint.SegmentFingerprint);
     # None unless run_pipeline(fingerprint=True).
-    fingerprint=None
+    fingerprint = None
 
 
 def _detector_to_boundary_type(detector: str) -> str:
@@ -139,7 +150,10 @@ def _default_calibrator(species: str) -> BoundaryCalibrator | None:
 
 
 def segment_audio(
-    audio: np.ndarray, sr: int, profile: dict, calibrator: BoundaryCalibrator | None = None,
+    audio: np.ndarray,
+    sr: int,
+    profile: dict,
+    calibrator: BoundaryCalibrator | None = None,
     cpc=None,
 ) -> list[Segment]:
     """Raw audio -> calibrated Segments via NBD proposal + (calibrator | threshold).
@@ -183,9 +197,7 @@ def segment_audio(
             floor_drop=profile.get("spectral_drop_threshold", float("inf")),
             debounce_ms=debounce_ms,
         )
-        times_types = [
-            (p.time_ms, _detector_to_boundary_type(p.detector), 1.0) for p in proposals
-        ]
+        times_types = [(p.time_ms, _detector_to_boundary_type(p.detector), 1.0) for p in proposals]
 
     min_samples = max(int(sr * 0.01), 1)  # drop sub-10ms slivers
     segments: list[Segment] = []
@@ -211,6 +223,9 @@ def run_pipeline(
     cache=None,
     with_null: bool = False,
     fingerprint: bool = False,
+    seed: int = 0,
+    intermediates: dict | None = None,
+    segment_source: SegmentSource | None = None,
 ) -> tuple[dict, dict]:
     """Run raw audio files -> (schema-valid verdict report, execution trace).
 
@@ -247,6 +262,7 @@ def run_pipeline(
     # If the calibrator uses learned CPC context, supply a CPC backbone for inference.
     if cal_fitted and getattr(calibrator, "_use_context", False) and cpc is None:
         from bioacoustic_pipeline.embeddings.backbones import CPCBackbone  # noqa: PLC0415
+
         cpc = CPCBackbone()
         if not cpc.available:
             raise RuntimeError(
@@ -266,11 +282,23 @@ def run_pipeline(
             tk_available = False
             tk_skip = f"firewall: {exc}"
 
+    # Segment-representation compatibility gate: the tokenizer (and any affect head) must be
+    # assigned in the same representation space they were trained on. No-op when no source is
+    # supplied (backward compatible). See embeddings.segment_representation.
+    if segment_source is not None and tk_available:
+        assert_compatible(tokenizer, segment_source, head_kind="vq_vae")
+
     tokens: list[int] = []
     boundary_types: list[str] = []
     sequences: list[list[int]] = []
     token_fps: list[tuple[int, np.ndarray]] = []  # (token, fingerprint.combined)
     n_files = n_loaded = n_segments = n_fingerprinted = 0
+
+    # Optional intermediates sink for reproducibility materialization (deterministic run).
+    # Populated only when a dict is passed in; never affects the verdict or trace shape.
+    if intermediates is not None:
+        for _key in ("segments", "tokens", "boundary_types", "sequences", "fingerprints"):
+            intermediates.setdefault(_key, [])
 
     for path in audio_paths:
         n_files += 1
@@ -285,13 +313,36 @@ def run_pipeline(
 
         if fingerprint:  # physics-grounded descriptor, post-segmentation / pre-tokenization
             from bioacoustic_pipeline.diagnostics import acoustic_fingerprint as afp  # noqa: PLC0415
+
             for seg in segs:
                 seg.fingerprint = afp.extract(
-                    seg.audio, seg.sr, start_ms=seg.start_ms, end_ms=seg.end_ms,
-                    species=species, boundary_type=seg.boundary_type,
+                    seg.audio,
+                    seg.sr,
+                    start_ms=seg.start_ms,
+                    end_ms=seg.end_ms,
+                    species=species,
+                    boundary_type=seg.boundary_type,
                     boundary_confidence=seg.confidence,
                 )
                 n_fingerprinted += 1
+
+        if intermediates is not None:  # capture JSON-safe segments + fingerprint vectors
+            file_idx = n_loaded - 1
+            for j, seg in enumerate(segs):
+                intermediates["segments"].append(
+                    {
+                        "file_idx": file_idx,
+                        "segment_id": f"f{file_idx:04d}_s{j:03d}",
+                        "start_ms": round(float(seg.start_ms), 4),
+                        "end_ms": round(float(seg.end_ms), 4),
+                        "boundary_type": seg.boundary_type,
+                        "confidence": round(float(seg.confidence), 4),
+                    }
+                )
+                if fingerprint and seg.fingerprint is not None:
+                    intermediates["fingerprints"].append(
+                        np.asarray(seg.fingerprint.combined, dtype=np.float32)
+                    )
 
         if bank is not None:
             for seg in segs:
@@ -319,6 +370,7 @@ def run_pipeline(
     afp_trace = None
     if fingerprint:
         from bioacoustic_pipeline.diagnostics import acoustic_fingerprint as afp  # noqa: PLC0415
+
         token_to_fp: dict[int, list[np.ndarray]] = {}
         for tok, fpv in token_fps:
             token_to_fp.setdefault(tok, []).append(fpv)
@@ -328,21 +380,34 @@ def run_pipeline(
             cohs = [v["cohesion"] for v in tc.values()]
             afp_trace["token_coherence_mean"] = round(float(np.mean(cohs)), 4) if cohs else 0.0
             afp_trace["token_coherence_null_p"] = round(
-                float(afp.token_coherence_null(token_to_fp, n_permutations=100).p_value), 4)
+                float(afp.token_coherence_null(token_to_fp, n_permutations=100, seed=seed).p_value),
+                4,
+            )
         if sum(len(s) for s in sequences) > 50 and token_to_fp:
             try:
                 from bioacoustic_pipeline.diagnostics.alias_detector import (  # noqa: PLC0415
                     detect_functional_aliases,
                 )
-                rep = detect_functional_aliases(sequences, similarity_threshold=0.80, min_instances=10)
+
+                rep = detect_functional_aliases(
+                    sequences, similarity_threshold=0.80, min_instances=10
+                )
                 cents = {t: np.mean(v, axis=0) for t, v in token_to_fp.items()}
                 groups = {g.group_id: g.member_tokens for g in rep.groups}
                 if groups:
                     ad = afp.alias_acoustic_divergence(groups, cents)
                     divs = [v["divergence"] for v in ad.values()]
-                    afp_trace["alias_divergence_mean"] = round(float(np.mean(divs)), 4) if divs else 0.0
+                    afp_trace["alias_divergence_mean"] = (
+                        round(float(np.mean(divs)), 4) if divs else 0.0
+                    )
                     afp_trace["alias_divergence_null_p"] = round(
-                        float(afp.alias_divergence_null(groups, cents, n_permutations=100).p_value), 4)
+                        float(
+                            afp.alias_divergence_null(
+                                groups, cents, n_permutations=100, seed=seed
+                            ).p_value
+                        ),
+                        4,
+                    )
             except Exception:  # noqa: BLE001 — alias path is best-effort
                 pass
 
@@ -350,6 +415,7 @@ def run_pipeline(
     motif_trace = None
     if sequences and sum(len(s) for s in sequences) > 10:
         from bioacoustic_pipeline.diagnostics import motif_miner as mm  # noqa: PLC0415
+
         raw = mm.mine_ngrams(sequences, min_n=2, max_n=5, min_support=3)
         token_motifs = mm.build_motifs(raw, sequences, motif_type="token")
         motif_trace = {
@@ -362,7 +428,10 @@ def run_pipeline(
                 from bioacoustic_pipeline.diagnostics.alias_detector import (  # noqa: PLC0415
                     detect_functional_aliases,
                 )
-                rep = detect_functional_aliases(sequences, similarity_threshold=0.80, min_instances=10)
+
+                rep = detect_functional_aliases(
+                    sequences, similarity_threshold=0.80, min_instances=10
+                )
                 if rep.groups:
                     alias_map = {}
                     for g in rep.groups:
@@ -376,12 +445,12 @@ def run_pipeline(
                 pass
         # null significance
         try:
-            null = mm.motif_support_null(sequences, n_permutations=100, seed=0)
+            null = mm.motif_support_null(sequences, n_permutations=100, seed=seed)
             motif_trace["motif_null_p"] = round(float(null.p_value), 4)
         except Exception:  # noqa: BLE001
             pass
 
-    signals = synthesize_signals(tokens, boundary_types, sequences, with_null)
+    signals = synthesize_signals(tokens, boundary_types, sequences, with_null, seed=seed)
     if afp_trace:
         signals["token_coherence"] = afp_trace.get("token_coherence_mean")
         signals["alias_acoustic_divergence"] = afp_trace.get("alias_divergence_mean")
@@ -394,6 +463,11 @@ def run_pipeline(
     # collapses bouts to ~1 token. Prevents a false biological null.
     sufficiency = evaluate_sufficiency(sequences)
     report = build_report(species, sufficiency=sufficiency, **signals)
+
+    if intermediates is not None:  # bulk-copy the token streams for materialization
+        intermediates["tokens"] = list(tokens)
+        intermediates["boundary_types"] = list(boundary_types)
+        intermediates["sequences"] = [list(s) for s in sequences]
 
     trace = {
         "species": species,
@@ -410,5 +484,6 @@ def run_pipeline(
         "motif_report": motif_trace,
         "sequence_sufficiency": sufficiency.as_dict(),
         "schema_valid": is_valid(report),
+        "segment_representation": segment_source.as_dict() if segment_source is not None else None,
     }
     return report, trace

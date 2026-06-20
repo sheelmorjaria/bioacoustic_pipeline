@@ -41,11 +41,16 @@ def build_report(
     context_reason: str | None = None,
     turn_evaluable: bool = True,
     turn_reason: str | None = None,
+    domain_gate=None,
 ) -> dict:
     """Build + self-validate the canonical verdict report.
 
     Raises ValueError if the assembled report violates the schema (e.g. a
     pure-computational report that claims validated semantics).
+
+    ``domain_gate`` (a ``diagnostics.domain_gate.DomainGateResult`` or None): when the
+    corpus is rejected for bioacoustic-communication inference, the ethological axes go
+    ``not_applicable`` and a ``domain`` block is attached.
     """
     profile = compute_evidence_profile(
         species,
@@ -68,6 +73,7 @@ def build_report(
         context_reason=context_reason,
         turn_evaluable=turn_evaluable,
         turn_reason=turn_reason,
+        domain_gate=domain_gate,
     )
     return report_from_profile(profile)
 
@@ -83,6 +89,8 @@ def report_from_profile(profile: EvidenceProfile) -> dict:
         "axes": pd["axes"],
         "falsification": falsification_tests(profile),
     }
+    if pd.get("domain") is not None:
+        report["domain"] = pd["domain"]
     errors = validate_report(report)
     if errors:
         raise ValueError("verdict report violates schema: " + "; ".join(errors))

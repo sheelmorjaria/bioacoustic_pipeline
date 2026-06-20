@@ -32,15 +32,21 @@ AXIS_NAMES = (
 # biological null — it states the diagnostic could not be run, so a reviewer
 # cannot read it as "the species lacks this structure". Acoustic coherence and
 # call unitization are not gated this way (per-segment signals, not sequences).
+#
+# ``not_applicable``: the domain gate (diagnostics.domain_gate) REFUSES an
+# ethological-interpretation axis on an out-of-domain corpus (e.g. ESC-50
+# environmental sound). Distinct from not_evaluable: not_evaluable = "could not
+# compute (sparse data)"; not_applicable = "refuse to interpret (wrong domain)".
+# Both are abstentions, never claims. Only the 5 ethological axes carry it.
 AXIS_LEVELS = {
     "sequence_recombination": {"not_evaluable", "low", "medium", "high"},
-    "functional_aliasing": {"not_evaluable", "absent", "weak", "strong"},
+    "functional_aliasing": {"not_evaluable", "not_applicable", "absent", "weak", "strong"},
     "call_unitization": {"holistic", "segmented", "mixed"},
-    "context_binding": {"not_evaluable", "absent", "weak", "strong"},
-    "turn_structure": {"not_evaluable", "absent", "rhythmic", "constrained"},
+    "context_binding": {"not_evaluable", "not_applicable", "absent", "weak", "strong"},
+    "turn_structure": {"not_evaluable", "not_applicable", "absent", "rhythmic", "constrained"},
     "acoustic_coherence": {"absent", "weak", "strong"},
-    "motif_structure": {"not_evaluable", "absent", "weak", "strong"},
-    "semantic_validation": {"none", "behavioral", "playback-supported"},
+    "motif_structure": {"not_evaluable", "not_applicable", "absent", "weak", "strong"},
+    "semantic_validation": {"none", "behavioral", "playback-supported", "not_applicable"},
 }
 
 FALSIFICATION_TRACKS = {"null", "replication", "confound", "biology"}
@@ -96,6 +102,17 @@ def validate_report(report: dict) -> list[str]:
                 errors.append(f"falsification test missing label/track: {test}")
             elif test["track"] not in FALSIFICATION_TRACKS:
                 errors.append(f"unknown falsification track {test['track']!r}")
+
+    # Optional domain-gate block (diagnostics.domain_gate). Not required; if present,
+    # light-validate its shape so a gate-rejected report stays self-describing.
+    if "domain" in report:
+        domain = report["domain"]
+        if not isinstance(domain, dict):
+            errors.append("'domain' must be an object")
+        else:
+            for key in ("dataset", "dataset_role", "verdict", "communication_status"):
+                if key not in domain:
+                    errors.append(f"domain block missing {key!r}")
 
     return errors
 

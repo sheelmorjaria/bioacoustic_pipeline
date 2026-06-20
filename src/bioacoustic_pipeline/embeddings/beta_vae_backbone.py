@@ -24,6 +24,7 @@ class BetaVAEBackbone(Backbone):
     provenance_name = "human_beta_vae"
     embed_dim = 16
     view_class = "learned"
+    input_source = "cpc"  # β-VAE trained on CPC latents (affect = mu, deterministic)
 
     def __init__(self, checkpoint: str | Path | None = None):
         self._vae_ckpt = checkpoint or str(

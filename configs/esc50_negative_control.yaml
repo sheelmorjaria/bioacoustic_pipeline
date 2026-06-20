@@ -1,0 +1,47 @@
+# ESC-50 (BEANS-Zero subset) negative-control configuration.
+#
+# ESC-50 is generic environmental-sound classification (2000 5-s clips, 50 classes), NOT
+# annotated animal communication. The domain gate REJECTS it for bioacoustic-communication
+# inference: the pipeline computes acoustic structure (NBD, fingerprint, tokens) but marks
+# the ethological-interpretation axes not_applicable and emits NON_BIOACOUSTIC_COMMUNICATION.
+# Biological-source labels (dog, rooster, crickets, ...) -> BIOLOGICAL_SOUND_NON_COMMUNICATION_BENCHMARK.
+
+dataset:
+  name: beans_zero
+  subset: esc-50
+  role: negative_control_environmental_sound
+
+domain_gate:
+  enabled: true
+  expected_verdict: NON_BIOACOUSTIC_COMMUNICATION
+  allow_biological_source: true          # dog/cricket clips are biological SOURCE, still non-communication
+  require_call_type_timestamps: false    # ESC-50 has none
+  require_emitter_addressee: false       # ESC-50 has none
+  require_behavioral_context: false      # ESC-50 has none
+
+nbd:
+  enabled: true
+  profile: human                         # generic acoustic profile (fixed-threshold NBD, torch-free)
+  biological_interpretation: false       # do NOT read segments as communicative bouts
+
+representations:
+  spectrogram: true                      # deterministic log-mel (all-species)
+  acoustic_fingerprint: true             # physics-grounded, all-species
+  vqvae: fingerprint_kmeans              # acoustic-fingerprint k-means tokenizer (all-species, torch-free)
+  cpc: false                             # human-only — firewall-blocked on a species='none' corpus
+  biomae: false                          # bat-only — firewall-blocked
+  betavae_affect: false                  # human-only — firewall-blocked
+
+diagnostics:
+  token_distribution: true               # acoustic audit (still computed)
+  acoustic_coherence: true               # acoustic audit (still computed)
+  ood_gate: true                         # the domain gate itself
+  functional_alias: false                # NOT_APPLICABLE (ethological)
+  motif_semantics: false                 # NOT_APPLICABLE (ethological)
+  turn_structure: false                  # NOT_APPLICABLE (no emitter/addressee)
+  context_binding: false                 # NOT_APPLICABLE (no behavioral context)
+  semantic_validation: false             # NOT_APPLICABLE (Track-C biology only)
+
+verdict:
+  force_no_translation_claim: true
+  abstain_biological_claims: true

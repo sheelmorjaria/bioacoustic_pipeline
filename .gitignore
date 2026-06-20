@@ -35,6 +35,8 @@ checkpoints/
 
 # Reports / outputs
 outputs/
+repro_runs/
+playback_out/
 *.json.lock
 *.log
 

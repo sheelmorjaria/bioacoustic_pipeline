@@ -38,6 +38,7 @@ class SpeciesAcousticTokenizer:
         self.species = species
         self.cpc_provenance = cpc_provenance
         self.provenance_name = vqvae_provenance  # what the firewall gates tokenize on
+        self.input_source = "cpc"  # VQ-VAE trained on the species CPC latent space
         self._vqvae_ckpt = vqvae_checkpoint or str(
             REPO_ROOT / "checkpoints" / vqvae_provenance / "best_model.pt"
         )

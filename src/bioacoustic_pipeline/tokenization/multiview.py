@@ -36,6 +36,7 @@ class AcousticTokenizer:
     """VQ-VAE acoustic tokenizer on CPC latents (human). Guarded on checkpoints."""
 
     provenance_name = "human_vqvae_large"
+    input_source = "cpc"  # VQ-VAE trained on CPC latents (segment-representation category)
 
     def __init__(self, cpc_checkpoint: str | Path | None = None,
                  vqvae_checkpoint: str | Path | None = None):

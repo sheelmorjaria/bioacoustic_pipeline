@@ -1,0 +1,26 @@
+# Segment-representation source — the frozen representation space that feeds VQ-VAE / β-VAE.
+#
+# CPC is ONE option, not a prerequisite. The real contract: a head must be assigned in the
+# SAME space it was trained on. This config makes that explicit per species and the loader
+# (embeddings.segment_representation.resolve_source) firewall-checks the chosen source for the
+# species before any head consumes it; assert_compatible(head, source) then gates assignment.
+#
+# Categories: cpc | biomae | acoustic_fingerprint | spectrogram | embedding_bank_fusion
+# (fusion backbone not yet trained — build_backbone raises NotImplementedError for it).
+
+defaults:
+  human:    {source: cpc}                 # → human_cpc_phonetic (256-D, learned)
+  bat:      {source: cpc}                 # → bat_cpc (256-D, learned)
+  marmoset: {source: acoustic_fingerprint}  # marmoset_cpc is collapsed → fingerprint tokens
+
+segment_representation:
+  dim: 256              # informational; None for fingerprint/spectrogram (dynamic)
+  checkpoint: auto      # resolved from the provenance's firewall registry
+
+vq_vae:
+  input_source: cpc     # the VQ-VAE heads present today were trained on CPC latents
+  input_dim: 256
+
+beta_vae:
+  input_source: cpc     # the β-VAE head was trained on CPC latents; affect = mu (deterministic)
+  input_dim: 256

@@ -1,0 +1,51 @@
+# Deterministic DSP-core reproducibility configuration.
+#
+# Consumed (optionally) by scripts/deterministic_run.py with CLI overrides. PyYAML is an
+# optional dependency — if absent the script falls back to these same defaults in code.
+#
+# This file documents the "frozen inference" contract: the seed, the device scope, the
+# frozen fingerprint tokenizer, and the seeded null/bootstrap procedures that make the
+# tri-run byte-identical (Claim A — implementation determinism).
+
+species: human
+n_files: 20
+
+determinism:
+  enabled: true
+  seed: 1337
+  # torch flags (applied only if torch is importable; the DSP-core path never imports it):
+  torch_deterministic_algorithms: true
+  cudnn_benchmark: false
+  cudnn_deterministic: true
+  allow_tf32: false
+  sort_inputs: true          # sorted() over audio paths + segments-by-start_ms
+  stable_tie_breaks: true    # np.argmin first-index; sorted() stable ordering
+
+models:
+  eval_mode: true            # every torch backbone: .eval() + no_grad (already enforced)
+  disable_dropout: true      # .eval() disables dropout for the learned path
+  disable_augmentation: true # no random crop/gain/noise/masking on inference
+
+beta_vae:                    # N/A on the DSP-core path (no β-VAE) — documented for the learned path
+  use_mu_only: true
+  sample_z: false
+
+fingerprint_tokenizer:       # the torch-free tokenizer that emits real token sequences
+  method: kmeans_on_acoustic_fingerprint
+  k: 32
+  seed: 1337                 # k-means random_state (frozen once fit)
+  frozen_codebook: true
+
+vq_vae:                      # N/A on the DSP-core path — documented for the learned path
+  frozen_codebook: true
+  tie_break: lowest_token_id # torch.argmin returns first min index on ties
+
+null_models:
+  enabled: true
+  seed: 1337                 # threaded through run_pipeline -> permutation_test + fingerprint nulls
+  deterministic_shuffle: true
+
+bootstrap:
+  enabled: true
+  seed: 21337
+  deterministic_resample: true
