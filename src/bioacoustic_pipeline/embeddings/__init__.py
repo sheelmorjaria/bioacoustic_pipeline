@@ -6,6 +6,11 @@ from bioacoustic_pipeline.embeddings.backbones import (
     Backbone,
     CPCBackbone,
 )
+from bioacoustic_pipeline.embeddings.acoustic_fingerprint_backbone import (
+    AcousticFingerprintBackbone,
+)
+from bioacoustic_pipeline.embeddings.beta_vae_backbone import BetaVAEBackbone
+from bioacoustic_pipeline.embeddings.species_cpc_backbone import SpeciesCPCBackbone
 from bioacoustic_pipeline.embeddings.bank import BackboneView, EmbeddingBank
 from bioacoustic_pipeline.embeddings.cache import EmbeddingCache, audio_hash
 from bioacoustic_pipeline.embeddings.firewall import (
@@ -22,6 +27,9 @@ __all__ = [
     "CPCBackbone",
     "BioMAEBackbone",
     "AVESBackbone",
+    "AcousticFingerprintBackbone",
+    "BetaVAEBackbone",
+    "SpeciesCPCBackbone",
     "EmbeddingBank",
     "BackboneView",
     "EmbeddingCache",

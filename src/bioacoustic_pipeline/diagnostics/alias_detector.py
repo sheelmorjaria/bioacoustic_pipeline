@@ -293,3 +293,112 @@ def detect_functional_aliases(
         min_instances=min_instances,
         direction=direction,
     )
+
+
+# --------------------------------------------------------------------------- #
+# Speaker-controlled alias null
+# --------------------------------------------------------------------------- #
+
+
+def alias_density(
+    token_stream,
+    similarity_threshold: float = 0.80,
+    min_instances: int = 10,
+    direction: str = "following",
+) -> float:
+    """Fraction of eligible tokens merged into functional-alias groups.
+
+    Eligible = tokens seen >= ``min_instances`` times (singletons + merged). This is
+    the statistic the permutation nulls below reshuffle. Matches the density the
+    verdict engine consumes (orchestration.synthesize_signals).
+    """
+    rep = detect_functional_aliases(
+        token_stream, similarity_threshold=similarity_threshold,
+        min_instances=min_instances, direction=direction,
+    )
+    eligible = len(rep.singleton_tokens) + rep.n_merged
+    return rep.n_merged / max(eligible, 1)
+
+
+def shuffle_sequences_within_group(sequences, group, rng) -> list[list[int]]:
+    """Cross-file shuffle restricted to bouts sharing a group value (e.g. Emitter).
+
+    Preserves each group's token multiset + every bout length, but destroys
+    sequential structure within the group. Used so a positive alias result must
+    survive a speaker (or context) stratified null — preventing "different speakers
+    produce acoustically different variants" from being misread as "different tokens
+    fill the same functional role".
+    """
+    out = [list(s) for s in sequences]
+    group = list(group)
+    for g in dict.fromkeys(group):  # unique groups, order-stable
+        idx = [i for i, gg in enumerate(group) if gg == g]
+        if len(idx) < 2:
+            continue
+        lengths = [len(out[i]) for i in idx]
+        pool = [t for i in idx for t in out[i]]
+        rng.shuffle(pool)
+        k = 0
+        for i, ln in zip(idx, lengths):
+            out[i] = pool[k : k + ln]
+            k += ln
+    return out
+
+
+def controlled_alias_tests(
+    sequences,
+    *,
+    emitter=None,
+    context=None,
+    similarity_threshold: float = 0.80,
+    min_instances: int = 10,
+    n_permutations: int = 200,
+    seed: int = 0,
+) -> dict:
+    """Alias density vs a family of structure-destroying nulls.
+
+    A positive alias result is reported only if it survives these controls:
+      * ``within_file``   — permute tokens inside each bout (baseline sequence null)
+      * ``frequency``     — cross-file/unigram shuffle (preserves global token freq)
+      * ``within_emitter``— shuffle within Emitter bouts (speaker confound)
+      * ``within_context``— shuffle within Context bouts (behavioral-context confound)
+
+    Returns ``{null_name: NullTestResult}`` (only controls whose grouping is supplied
+    are included; within_file + frequency always run).
+
+    Raises nothing on degenerate input — returns whatever permutation_test yields.
+    """
+    from bioacoustic_pipeline.diagnostics.null_models import (  # noqa: PLC0415
+        cross_file_shuffle,
+        permutation_test,
+        within_file_shuffle,
+    )
+
+    stat = lambda seqs: alias_density(  # noqa: E731
+        seqs, similarity_threshold=similarity_threshold, min_instances=min_instances
+    )
+    results: dict[str, object] = {}
+
+    results["within_file"] = permutation_test(
+        sequences, stat, within_file_shuffle, n_permutations=n_permutations, seed=seed,
+        null_type="within_file",
+    )
+    results["frequency"] = permutation_test(
+        sequences, stat, cross_file_shuffle, n_permutations=n_permutations, seed=seed,
+        null_type="frequency",
+    )
+    if emitter is not None:
+        em = list(emitter)
+        results["within_emitter"] = permutation_test(
+            sequences, stat,
+            lambda seqs, rng, _em=em: shuffle_sequences_within_group(seqs, _em, rng),
+            n_permutations=n_permutations, seed=seed, null_type="within_emitter",
+        )
+    if context is not None:
+        ctx = list(context)
+        results["within_context"] = permutation_test(
+            sequences, stat,
+            lambda seqs, rng, _ctx=ctx: shuffle_sequences_within_group(seqs, _ctx, rng),
+            n_permutations=n_permutations, seed=seed, null_type="within_context",
+        )
+    return results

@@ -22,15 +22,24 @@ AXIS_NAMES = (
     "call_unitization",
     "context_binding",
     "turn_structure",
+    "acoustic_coherence",
+    "motif_structure",
     "semantic_validation",
 )
 
+# ``not_evaluable``: a sequence/annotation-dependent axis ABSTAINS when its input
+# is too sparse to test (see diagnostics.sequence_sufficiency). It is never a
+# biological null — it states the diagnostic could not be run, so a reviewer
+# cannot read it as "the species lacks this structure". Acoustic coherence and
+# call unitization are not gated this way (per-segment signals, not sequences).
 AXIS_LEVELS = {
-    "sequence_recombination": {"low", "medium", "high"},
-    "functional_aliasing": {"absent", "weak", "strong"},
+    "sequence_recombination": {"not_evaluable", "low", "medium", "high"},
+    "functional_aliasing": {"not_evaluable", "absent", "weak", "strong"},
     "call_unitization": {"holistic", "segmented", "mixed"},
-    "context_binding": {"absent", "weak", "strong"},
-    "turn_structure": {"absent", "rhythmic", "constrained"},
+    "context_binding": {"not_evaluable", "absent", "weak", "strong"},
+    "turn_structure": {"not_evaluable", "absent", "rhythmic", "constrained"},
+    "acoustic_coherence": {"absent", "weak", "strong"},
+    "motif_structure": {"not_evaluable", "absent", "weak", "strong"},
     "semantic_validation": {"none", "behavioral", "playback-supported"},
 }
 

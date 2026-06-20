@@ -23,6 +23,7 @@ class BackboneView:
     name: str
     vector: np.ndarray
     provenance: dict
+    view_class: str = "learned"  # "learned" | "interpretable"
 
 
 class EmbeddingBank:
@@ -69,6 +70,7 @@ class EmbeddingBank:
         return {
             "provenance_name": p.model_name,
             "embed_dim": backbone.embed_dim,
+            "view_class": getattr(backbone, "view_class", "learned"),
             "pretraining_domain": p.pretraining_domain,
             "contains_human_speech": p.contains_human_speech,
             "contains_text_supervision": p.contains_text_supervision,
@@ -85,13 +87,19 @@ class EmbeddingBank:
 
     def views(self, audio: np.ndarray, sr: int) -> list[BackboneView]:
         return [
-            BackboneView(name=b.name, vector=vec, provenance=self._provenance(b))
+            BackboneView(name=b.name, vector=vec, provenance=self._provenance(b),
+                         view_class=getattr(b, "view_class", "learned"))
             for b, vec in zip(self.backbones, self.embed_all(audio, sr).values())
         ]
 
     def report(self) -> dict:
+        active = [{"name": b.name, **self._provenance(b)} for b in self.backbones]
+        by_class: dict[str, list[str]] = {}
+        for b in self.backbones:
+            by_class.setdefault(getattr(b, "view_class", "learned"), []).append(b.name)
         return {
             "target_species": self.target_species,
-            "active": [{"name": b.name, **self._provenance(b)} for b in self.backbones],
+            "active": active,
+            "by_view_class": by_class,
             "skipped": [{"name": n, "reason": r} for n, r in self._skipped],
         }

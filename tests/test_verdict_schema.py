@@ -100,6 +100,8 @@ class TestMockFixture(unittest.TestCase):
                 "call_unitization": {"level": "holistic", "confidence": 0.8, "evidence": "10H/1S"},
                 "context_binding": {"level": "absent", "confidence": 0.9, "evidence": "0"},
                 "turn_structure": {"level": "absent", "confidence": 0.7, "evidence": "0"},
+                "acoustic_coherence": {"level": "absent", "confidence": 0.9, "evidence": "no fp"},
+                "motif_structure": {"level": "absent", "confidence": 0.9, "evidence": "no motifs"},
                 "semantic_validation": {"level": "none", "confidence": 1.0, "evidence": "bio only"},
             },
             "falsification": [

@@ -31,7 +31,8 @@ class NBDSignals:
 
     rms: np.ndarray
     energy_change: np.ndarray
-    spectral_flux: np.ndarray
+    spectral_flux: np.ndarray      # positive flux: new spectral energy appearing
+    spectral_drop: np.ndarray      # negative flux: spectral energy disappearing (fire-on-drop)
     band_flux: np.ndarray
     rms_slope: np.ndarray
     hop_ms: float
@@ -70,6 +71,7 @@ def compute_signals(audio: np.ndarray, sr: int, hop_ms: float = 10.0) -> NBDSign
     hann = _hann(fft_size)
     low_bins = max(fft_size // 12, 1)  # bottom ~8% of the spectrum = low band
     flux = np.zeros(n_frames)
+    flux_drop = np.zeros(n_frames)  # negative flux: spectral energy disappearing (fire-on-drop)
     band = np.zeros(n_frames)
     prev_mag = None
     prev_low = None
@@ -82,12 +84,15 @@ def compute_signals(audio: np.ndarray, sr: int, hop_ms: float = 10.0) -> NBDSign
         low = mag[:low_bins]
         if prev_mag is not None:
             flux[i] = np.sum(np.maximum(0.0, mag - prev_mag))
+            flux_drop[i] = np.sum(np.maximum(0.0, prev_mag - mag))
             band[i] = np.sum(np.maximum(0.0, low - prev_low))
         prev_mag = mag
         prev_low = low
 
     if flux.max() > 1e-10:
         flux /= flux.max()
+    if flux_drop.max() > 1e-10:
+        flux_drop /= flux_drop.max()
     if band.max() > 1e-10:
         band /= band.max()
 
@@ -95,6 +100,7 @@ def compute_signals(audio: np.ndarray, sr: int, hop_ms: float = 10.0) -> NBDSign
         rms=rms_n,
         energy_change=energy_change,
         spectral_flux=flux,
+        spectral_drop=flux_drop,
         band_flux=band,
         rms_slope=rms_slope,
         hop_ms=hop_ms,
@@ -133,6 +139,17 @@ class Proposal:
     rms_slope: float
     duration_since_prev_ms: float
     detector: str  # "energy" | "spectral" | "both"
+    # Local-context descriptors (computed from the NBD signal arrays around `frame`).
+    # The point features above discard the boundary's local profile — but that
+    # profile (silence→voicing energy step, sharp spectral discontinuity, peakiness
+    # vs neighbours) is what actually distinguishes a real word onset from a
+    # spurious fluctuation. These feed the calibrator.
+    rms_ratio: float = 0.0           # rms just-after / just-before (voicing onset)
+    flux_contrast: float = 0.0       # spectral_flux[f] / median(window) — peakiness
+    energy_contrast: float = 0.0     # energy_change[f] / median(window)
+    flux_asym: float = 0.0           # flux after − before (discontinuity direction)
+    duration_to_next_ms: float = 0.0
+    spectral_drop: float = 0.0       # negative spectral flux at this frame (fire-on-drop)
 
 
 def generate_proposals(
@@ -140,15 +157,22 @@ def generate_proposals(
     *,
     floor_energy: float = 0.05,
     floor_flux: float = 0.03,
+    floor_drop: float = float("inf"),
     debounce_ms: float = 30.0,
 ) -> list[Proposal]:
-    """Emit candidate boundaries: local peaks of energy_change / spectral_flux.
+    """Emit candidate boundaries: local peaks of energy_change / spectral_flux / spectral_drop.
 
     Low floors (not decision thresholds) — the calibrator decides which
     proposals are real. Peaks within debounce_ms are merged (stronger wins).
+
+    ``floor_drop`` (default infinity = disabled) enables fire-on-drop: detecting
+    spectral energy *disappearing* (call offsets / releases), complementary to the
+    positive-flux detector which fires on energy *appearing* (onsets).
     """
     e_peaks = _peaks_above_floor(signals.energy_change, floor_energy)
     s_peaks = _peaks_above_floor(signals.spectral_flux, floor_flux)
+    d_peaks = (_peaks_above_floor(signals.spectral_drop, floor_drop)
+               if floor_drop < float("inf") else [])
 
     # Tag each peak frame with which detector(s) fired.
     tagged: dict[int, set[str]] = {}
@@ -156,6 +180,8 @@ def generate_proposals(
         tagged.setdefault(f, set()).add("energy")
     for f in s_peaks:
         tagged.setdefault(f, set()).add("spectral")
+    for f in d_peaks:
+        tagged.setdefault(f, set()).add("spectral_drop")
 
     # Merge peaks closer than debounce_ms: keep the stronger combined signal.
     frame_ms = signals.hop_ms
@@ -175,22 +201,41 @@ def generate_proposals(
 
     proposals: list[Proposal] = []
     prev_ms = 0.0
+    W = 5  # ±50 ms context window (10 ms hop)
+    rms, flux, echg = signals.rms, signals.spectral_flux, signals.energy_change
+    n = signals.n_frames
+    end_ms = n * frame_ms
     for f in merged:
         detectors = tagged[f]
-        detector = "both" if {"energy", "spectral"} <= detectors else next(iter(detectors))
+        detector = "both" if len(detectors) > 1 else next(iter(detectors))
         t = f * frame_ms
+        lo, aft, hi = max(0, f - W), f + 1, min(n, f + 1 + W)
+        wlo, whi = max(0, f - W), min(n, f + W + 1)
+        rms_before = float(rms[lo:f].mean()) if f > lo else 0.0
+        rms_after = float(rms[aft:hi].mean()) if hi > aft else 0.0
+        flux_before = float(flux[lo:f].mean()) if f > lo else 0.0
+        flux_after = float(flux[aft:hi].mean()) if hi > aft else 0.0
         proposals.append(
             Proposal(
                 time_ms=t,
                 frame=f,
-                energy_change=float(signals.energy_change[f]),
-                spectral_flux=float(signals.spectral_flux[f]),
+                energy_change=float(echg[f]),
+                spectral_flux=float(flux[f]),
                 band_flux=float(signals.band_flux[f]),
-                local_rms=float(signals.rms[f]),
+                spectral_drop=float(signals.spectral_drop[f]),
+                local_rms=float(rms[f]),
                 rms_slope=float(signals.rms_slope[f]),
                 duration_since_prev_ms=t - prev_ms,
                 detector=detector,
+                rms_ratio=rms_after / (rms_before + 1e-6),
+                flux_contrast=float(flux[f]) / (float(np.median(flux[wlo:whi])) + 1e-6),
+                energy_contrast=float(echg[f]) / (float(np.median(echg[wlo:whi])) + 1e-6),
+                flux_asym=flux_after - flux_before,
             )
         )
         prev_ms = t
+    # duration_to_next: symmetric to duration_since_prev (backfill after sort).
+    for i, p in enumerate(proposals):
+        nxt = proposals[i + 1].time_ms if i + 1 < len(proposals) else end_ms
+        p.duration_to_next_ms = nxt - p.time_ms
     return proposals

@@ -25,6 +25,10 @@ class Backbone(ABC):
     name: str
     provenance_name: str  # key in configs/model_metadata.json
     embed_dim: int
+    # "learned" (CPC/BioMAE/AVES/Perch) vs "interpretable" (handcrafted physics
+    # fingerprint). Surfaced in EmbeddingBank.report() so handcrafted and learned
+    # views are never reported as equivalent.
+    view_class: str = "learned"
 
     @property
     @abstractmethod
@@ -73,16 +77,25 @@ class CPCBackbone(Backbone):
         return self._err
 
     def embed(self, audio: np.ndarray, sr: int) -> np.ndarray:
+        return self.embed_frames(audio, sr).mean(axis=0).astype(np.float32)
+
+    def embed_frames(self, audio: np.ndarray, sr: int) -> np.ndarray:
+        """Per-frame CPC latents (n_frames, embed_dim) at a 10 ms hop.
+
+        Unlike ``embed`` (which mean-pools to one vector), this returns the full
+        frame sequence so a caller can read local context — e.g. the NBD
+        calibrator's learned-context features around each proposed boundary.
+        """
         import torch  # noqa: PLC0415
 
         frame = max(int(sr * 0.01), 1)
         n_frames = len(audio) // frame
         if n_frames < 2:
-            return np.zeros(self.embed_dim, dtype=np.float32)
+            return np.zeros((2, self.embed_dim), dtype=np.float32)
         frames = audio[: n_frames * frame].reshape(1, n_frames, frame)
         with torch.no_grad():
             z, _, _ = self._model(torch.from_numpy(frames.astype(np.float32)))
-        return z.squeeze(0).mean(dim=0).numpy().astype(np.float32)
+        return z.squeeze(0).numpy().astype(np.float32)
 
 
 class BioMAEBackbone(Backbone):

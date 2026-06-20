@@ -25,10 +25,21 @@ checkpoints/
 *.pt
 *.onnx
 *.safetensors
+*.pkl
+*.npz
+
+# Audio files (in case any end up in the repo)
+*.wav
+*.flac
+*.mp3
 
 # Reports / outputs
 outputs/
 *.json.lock
+*.log
+
+# Claude / agent state (not part of the pipeline)
+.claude/
 
 # IDE / OS
 .idea/

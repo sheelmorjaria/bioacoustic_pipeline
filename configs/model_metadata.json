@@ -21,13 +21,33 @@
       "applies_to_species": ["human"],
       "notes": "acoustic similarity classes, NOT word identity (Semantic Ceiling)"
     },
+    "bat_vqvae": {
+      "pretraining_domain": "egyptian_fruit_bat",
+      "contains_human_speech": false,
+      "contains_text_supervision": false,
+      "allowed_use": ["tokenize"],
+      "forbidden_use": ["semantic_verdict", "animal_meaning_claim"],
+      "applies_to_species": ["bat"],
+      "source": "SyntacticVQVAE trained on bat_cpc latents (256 codes, ~70% utilized)",
+      "notes": "acoustic-similarity classes on Egyptian fruit bat calls; NOT meaning (Semantic Ceiling)"
+    },
     "bat_cpc": {
       "pretraining_domain": "egyptian_fruit_bat",
       "contains_human_speech": false,
       "contains_text_supervision": false,
       "allowed_use": ["embedding", "probe", "tokenize"],
-      "forbidden_use": [],
-      "applies_to_species": ["bat"]
+      "forbidden_use": ["semantic_verdict", "animal_meaning_claim"],
+      "applies_to_species": ["bat"],
+      "notes": "self-supervised CPC on Egyptian fruit bat vocalizations"
+    },
+    "marmoset_cpc": {
+      "pretraining_domain": "common_marmoset",
+      "contains_human_speech": false,
+      "contains_text_supervision": false,
+      "allowed_use": ["embedding", "probe", "tokenize"],
+      "forbidden_use": ["semantic_verdict", "animal_meaning_claim"],
+      "applies_to_species": ["marmoset"],
+      "notes": "self-supervised CPC on common marmoset vocalizations"
     },
     "biomae": {
       "pretraining_domain": "egyptian_fruit_bat",
@@ -65,6 +85,34 @@
       "applies_to_species": ["human"],
       "source": "EarthSpeciesProject/NatureLM-audio",
       "notes": "text supervision = hidden linguistic leakage; retrieval-only"
+    },
+    "acoustic_fingerprint": {
+      "pretraining_domain": "none (deterministic handcrafted descriptors)",
+      "contains_human_speech": false,
+      "contains_text_supervision": false,
+      "allowed_use": ["embedding", "affect", "tokenize", "annotation_suggestion"],
+      "forbidden_use": ["semantic_verdict", "animal_meaning_claim", "verdict_weight"],
+      "applies_to_species": [],
+      "notes": "physics-grounded interpretable descriptor; no training data -> no leakage; the species-agnostic (all-species) view"
+    },
+    "spectrogram": {
+      "pretraining_domain": "none (deterministic DSP transform: STFT + mel filterbank)",
+      "contains_human_speech": false,
+      "contains_text_supervision": false,
+      "allowed_use": ["embedding", "tokenize", "annotation_suggestion"],
+      "forbidden_use": ["semantic_verdict", "animal_meaning_claim", "verdict_weight"],
+      "applies_to_species": [],
+      "notes": "time-frequency acoustic image; no training data -> no leakage; all-species; the bridge layer between raw audio and every other representation"
+    },
+    "human_beta_vae": {
+      "pretraining_domain": "human_speech",
+      "contains_human_speech": true,
+      "contains_text_supervision": false,
+      "allowed_use": ["embedding", "affect"],
+      "forbidden_use": ["semantic_verdict", "animal_meaning_claim", "verdict_weight", "tokenize"],
+      "applies_to_species": ["human"],
+      "source": "beta-VAE trained on LibriSpeech CPC latents (256D -> 16D, beta=4.0)",
+      "notes": "affective dual-stream complement to VQ-VAE; disentangled prosodic latent; human-only"
     }
   }
 }

@@ -10,6 +10,7 @@ schema (so upstream modules can never emit a malformed verdict).
 
 from __future__ import annotations
 
+from bioacoustic_pipeline.diagnostics.sequence_sufficiency import SufficiencyResult
 from bioacoustic_pipeline.verdict_engine.evidence_profile import (
     EvidenceProfile,
     compute_evidence_profile,
@@ -30,7 +31,16 @@ def build_report(
     n_context_bound: int = 0,
     n_turn_bigrams: int = 0,
     entrained: bool | None = None,
+    token_coherence: float | None = None,
+    alias_acoustic_divergence: float | None = None,
+    n_motifs: int | None = None,
+    motif_null_p: float | None = None,
     semantic_status: str = "none",
+    sufficiency: SufficiencyResult | None = None,
+    context_evaluable: bool = True,
+    context_reason: str | None = None,
+    turn_evaluable: bool = True,
+    turn_reason: str | None = None,
 ) -> dict:
     """Build + self-validate the canonical verdict report.
 
@@ -48,7 +58,16 @@ def build_report(
         n_context_bound=n_context_bound,
         n_turn_bigrams=n_turn_bigrams,
         entrained=entrained,
+        token_coherence=token_coherence,
+        alias_acoustic_divergence=alias_acoustic_divergence,
+        n_motifs=n_motifs,
+        motif_null_p=motif_null_p,
         semantic_status=semantic_status,
+        sufficiency=sufficiency,
+        context_evaluable=context_evaluable,
+        context_reason=context_reason,
+        turn_evaluable=turn_evaluable,
+        turn_reason=turn_reason,
     )
     return report_from_profile(profile)
 

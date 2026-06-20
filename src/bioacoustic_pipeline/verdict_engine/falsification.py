@@ -46,6 +46,16 @@ _AXIS_TESTS: dict[str, list[tuple[str, str]]] = {
         ("turn bigrams explained by overlap/co-occurrence chance, not syntax", "null"),
         ("rhythmic entrainment disappears in held-out dyads/colonies", "replication"),
     ],
+    "acoustic_coherence": [
+        ("token-fingerprint coherence does not exceed shuffled-label null (p >= 0.05)", "null"),
+        ("coherence collapses under file/session-held-out replication", "replication"),
+        ("tokens cluster by speaker/session/device, not by acoustic class", "confound"),
+    ],
+    "motif_structure": [
+        ("motif support does not exceed shuffled-token null (p >= 0.05)", "null"),
+        ("motifs dissolve under file/session-held-out replication", "replication"),
+        ("motifs explained by token frequency, not sequential structure", "confound"),
+    ],
     "semantic_validation": [
         (_UNIVERSAL_SEMANTICS, "biology"),
     ],
@@ -57,6 +67,8 @@ _POSITIVE_LEVELS = {
     "call_unitization": {"segmented", "mixed", "holistic"},
     "context_binding": {"weak", "strong"},
     "turn_structure": {"rhythmic", "constrained"},
+    "acoustic_coherence": {"weak", "strong"},
+    "motif_structure": {"weak", "strong"},
     "semantic_validation": {"none", "behavioral", "playback-supported"},
 }
 
