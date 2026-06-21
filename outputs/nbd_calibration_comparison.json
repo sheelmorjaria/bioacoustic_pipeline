@@ -1,14 +1,49 @@
 {
   "experiment": "nbd_calibration_comparison_librispeech",
   "dataset": "LibriSpeech train-clean-360",
-  "n_train": 50, "n_test": 30, "tolerance_ms": 50, "evaluator": "one_to_one_greedy",
+  "n_train": 50, "n_test": 30,
+  "tolerance_word_ms": 50, "tolerance_phoneme_ms": 30,
+  "evaluator": "three_metric_comparison",
   "date": "2026-06-21",
   "methods": {
-    "raw_nbd": {"F1": 0.270, "P": 0.157, "R": 0.960, "pred_per_gt": 6.1, "uses_cpc": false},
-    "scalar_gbt_19feat": {"F1": 0.450, "P": 0.445, "R": 0.455, "pred_per_gt": 1.0, "uses_cpc": false},
-    "cpc_context_gbt": {"F1": 0.458, "P": 0.327, "R": 0.765, "pred_per_gt": 2.3, "uses_cpc": true},
-    "crnn_mask_gated_nbd": {"F1": 0.293, "P": 0.174, "R": 0.935, "pred_per_gt": 5.4, "uses_cpc": false}
+    "raw_nbd": {
+      "one_to_one_F1": 0.270, "many_to_many_F1": null, "combined_F1": null,
+      "uses_cpc": false, "comment": "baseline, no calibrator"
+    },
+    "scalar_gbt_19feat": {
+      "one_to_one_F1": 0.450,
+      "many_to_many_F1": 0.479,
+      "word_multi_res_F1": 0.479,
+      "combined_multi_res_F1": 0.638,
+      "P_combined": 0.753, "R_combined": 0.554,
+      "pred_per_gt": 1.0,
+      "word_TPs": 465, "word_FPs": 454, "reclaimed_to_phoneme": 227, "combined_TPs": 692,
+      "uses_cpc": false,
+      "comment": "CPC-free ceiling under combined metric; 50% of word FPs land on phoneme boundaries"
+    },
+    "cpc_context_gbt": {
+      "one_to_one_F1": 0.458,
+      "many_to_many_F1": 0.522,
+      "word_multi_res_F1": 0.521,
+      "combined_multi_res_F1": 0.794,
+      "P_combined": 0.737, "R_combined": 0.859,
+      "pred_per_gt": 2.3,
+      "word_TPs": 783, "word_FPs": 1197, "reclaimed_to_phoneme": 677, "combined_TPs": 1460,
+      "uses_cpc": true,
+      "comment": "previously reported 0.836 at 150 files; 30-file test gives 0.794; 57% reclaim rate"
+    },
+    "crnn_mask_gated_nbd": {
+      "one_to_one_F1": 0.293,
+      "uses_cpc": false,
+      "comment": "negative result - CRNN detects speech not word boundaries"
+    }
   },
-  "headline_finding": "Under strict one-to-one word-boundary evaluation, scalar GBT (F1=0.450) nearly matches CPC-context GBT (F1=0.458). The previously reported CPC-context F1=0.836 is the multi-resolution combined metric, which credits word-FPs aligning to phoneme boundaries. CPC is not required for the core segmentation pipeline.",
-  "architecture_implication": "Production segmentation is CPC-free: PCEN+CRNN for calls in noise, scalar GBT for speech-like calibration. CPC retained only as optional human validation/diagnostic."
+  "cpc_advantage_by_metric": {
+    "one_to_one": 0.008,
+    "many_to_many": 0.043,
+    "combined_multi_res": 0.156
+  },
+  "headline_finding": "CPC context is not essential for strict word-level evaluation (F1 0.450 vs 0.458, +0.008). However, for the blueprint's multi-resolution combined metric, CPC provides a significant advantage (F1 0.638 vs 0.794, +0.156) because CPC's higher recall places more proposals near phoneme boundaries, which the combined metric credits as reclaimed true positives. CPC is valuable for the human speech validation track but not required for the animal call detection pipeline (where PCEN+CRNN F1=0.703 operates without CPC).",
+  "architectural_implication": "Production segmentation is CPC-free for animal deployment (PCEN+CRNN). CPC retained as valuable optional for human speech validation under the combined metric.",
+  "correction_note": "Earlier framing 'CPC is optional' was too strong for the combined metric. Scalar GBT combined F1=0.638 is the honest CPC-free ceiling, but CPC adds a real +0.156 there."
 }
