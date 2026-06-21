@@ -1,0 +1,74 @@
+# Segmentation router — canonical architecture (empirically validated).
+#
+# The pipeline routes audio to the appropriate segmentation method based on the
+# acoustic regime. This is the central architecture decision: different regimes
+# require fundamentally different segmenters.
+#
+# Validation summary:
+#   MeerKAT (discrete calls in noise):    PCEN+CRNN F1=0.703 (one-to-one onset);
+#     HECB internal boundaries recover call-type-relevant sub-call structure
+#     (pooled V=0.274 > whole V=0.246).
+#   LibriSpeech (continuous speech):      NBD+CPC calibrator combined-F1=0.836
+#     (the §1 metric); CRNN word detection F1=0.59 << 0.836; HECB-on-CRNN
+#     internal 0.41 << oracle 0.64 — CRNN is the speech bottleneck, not the
+#     internal mechanism. Oracle-event HECB recovers in-word phonemes F1=0.64.
+#   ESC-50 (negative control):            domain gate → NON_BIOACOUSTIC_COMMUNICATION.
+
+segmentation_router:
+
+  # Regime 1: Discrete vocalization events in noise.
+  # Examples: meerkat, marmoset, rodent USVs, canary song.
+  # CRNN excels at isolating discrete calls from background noise.
+  discrete_event_calls:
+    method: pcen_crnn
+    description: >
+      PCEN spectrogram → Conv2D→BiLSTM→P(call) per frame → hysteresis →
+      connected components → call events. F1=0.703 on MeerKAT (one-to-one onset).
+    internal_annotator: hecb
+    internal_description: >
+      HECB typed internal-boundary annotator: NBD proposals inside CRNN events
+      → typed classifier (onset/offset/internal/noise) → conservative decoder.
+      Preserves CRNN timing (snap=False, gate_durations=False by default);
+      annotates sub-call structure for long/complex calls (>250ms).
+    representation: whole_call_primary + sub_call_augmentation
+    run_pipeline_option: "segmentation='hecb'"
+
+  # Regime 2: Continuous speech-like audio.
+  # Examples: LibriSpeech (human speech), any quasi-continuous vocal stream.
+  # NBD+calibrator wins on speech; CRNN is weak (F1=0.59 on LibriSpeech).
+  continuous_speech_like:
+    method: nbd_calibrator
+    description: >
+      NBD proposals (energy/spectral flux) → learned boundary calibrator
+      (GBT + optional CPC learned-context) → calibrated P(boundary) with
+      ABSTAIN band. Combined-F1=0.836 on LibriSpeech (§1 metric, reclaims
+      phoneme-aligned word false-positives).
+    internal_annotator: none
+    internal_description: >
+      HECB is optional here (oracle-event test recovers in-word phonemes
+      F1=0.636, but HECB-on-CRNN degrades to 0.41 — poor parent events).
+      The NBD calibrator already finds sub-word structure via the
+      multi-resolution combined-F1 reclaim.
+    representation: segment_level
+    run_pipeline_option: "segmentation='nbd' (default)"
+
+  # Regime 3: Exploratory / unknown species.
+  # No species-specific model trained yet; conservative defaults.
+  exploratory_unlabeled:
+    method: nbd_proposal
+    description: >
+      Fixed-threshold NBD proposals + ABSTAIN (no calibrator). Generates
+      candidate boundaries without a learned gate; the sequence-sufficiency
+      check determines whether the resulting token stream is evaluable.
+    internal_annotator: none
+    representation: segment_level
+    run_pipeline_option: "segmentation='nbd', calibrator=False"
+
+  # Domain gate (pre-segmentation):
+  # Refuses ethological inference on out-of-domain corpora.
+  # ESC-50 → NON_BIOACOUSTIC_COMMUNICATION (3-class taxonomy separates clip
+  # SOURCE from corpus suitability). Acoustic axes still scored; ethological
+  # axes → not_applicable.
+  domain_gate:
+    config: configs/model_metadata.json
+    negative_control: ESC-50
