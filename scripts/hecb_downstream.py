@@ -1,19 +1,14 @@
 #!/usr/bin/env python3
-"""HECB-Seg downstream: does typed internal sub-call structure add value?
+"""HECB-Seg downstream: whole/sub-call/pooled call-type recovery (standard ablation).
 
-The segmentation result (2026-06-21) established that PCEN+CRNN is the authoritative
-call-event detector and HECB-Seg's role is to ANNOTATE typed internal sub-call boundaries
-(it preserves CRNN timing exactly; +793 boundaries across 213 calls on MeerKAT). This
-script answers the follow-up: does that internal structure help DOWNSTREAM?
+Thin wrapper around ``representation.subcall`` (the canonical whole/sub/pooled
+ablation). Loads the cached HECB CRNN + typed classifier, runs HECB inference per
+MeerKAT clip, matches CRNN call events to GT call-types, builds whole/sub/pooled
+representations, and runs the standardized ablation.
 
-Comparison (per the validated MeerKAT call-type corpus):
-  1. Whole CRNN call           — call-type recovery baseline (fingerprint → kmeans → V / probe)
-  2. Whole + sub-call pooled   — does an internal-structure summary improve recovery?
-  3. Sub-call motif structure  — do within-call sub-call token sequences carry call-type
-                                 signal? (sub-call-token ↔ parent-call-type V + per-call LZ)
-
-Uses the cached CRNN + typed classifier from `train_hecb_seg.py` and the production
-`segmentation.hierarchical.hecb_decode` decoder (no snapping — CRNN timing preserved).
+Result framing (validated 2026-06-21): pooled (whole+sub) > whole > sub-call-alone.
+Sub-call features augment whole-call representations when pooled but are weaker alone —
+internal segmentation augments, not replaces, whole-event representations.
 
 Usage:
   python3 scripts/hecb_downstream.py --n-clips 1500
@@ -39,10 +34,12 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from bioacoustic_pipeline.diagnostics import acoustic_fingerprint as afp  # noqa: E402
-from bioacoustic_pipeline.diagnostics.context_binding import association_test  # noqa: E402
-from bioacoustic_pipeline.diagnostics.lempel_ziv import lempel_ziv_complexity  # noqa: E402
-from bioacoustic_pipeline.diagnostics.probes import linear_probe  # noqa: E402
 from bioacoustic_pipeline.ingestion.manifest import load_species_profiles  # noqa: E402
+from bioacoustic_pipeline.representation.subcall import (  # noqa: E402
+    build_subcall_representations,
+    format_ablation_table,
+    whole_sub_pooled_ablation,
+)
 from bioacoustic_pipeline.segmentation.hierarchical import fit_hecb_priors, hecb_decode  # noqa: E402
 from bioacoustic_pipeline.utils.audio import load_audio  # noqa: E402
 
@@ -110,36 +107,6 @@ def match_events_to_calls(events_onset_ms, calls, tol_ms=100.0):
     return matched
 
 
-def kmeans_codebook(vecs, k, seed=0):
-    from sklearn.cluster import KMeans  # noqa: PLC0415
-    from sklearn.preprocessing import StandardScaler  # noqa: PLC0415
-
-    scaler = StandardScaler().fit(vecs)
-    km = KMeans(n_clusters=k, random_state=seed, n_init=10).fit(scaler.transform(vecs))
-    return scaler, km.cluster_centers_
-
-
-def tokenize(vecs, scaler, cents):
-    sv = scaler.transform(vecs)
-    return np.argmin(((sv[:, None, :] - cents[None, :, :]) ** 2).sum(axis=2), axis=1)
-
-
-def recovery(vecs, labels, k, n_perm=500):
-    """k-means tokens → token↔call-type V/nmi/p + linear probe accuracy."""
-    scaler, cents = kmeans_codebook(vecs, k)
-    toks = tokenize(vecs, scaler, cents)
-    binding = association_test(
-        [[int(t)] for t in toks], labels.tolist(), statistic="nmi", n_permutations=n_perm, seed=0
-    ).as_dict()
-    probe = linear_probe(vecs, labels, min_per_class=5).as_dict()
-    return {
-        "V": binding["cramers_v"],
-        "nmi": binding["observed_nmi"],
-        "p": binding["p_value"],
-        "probe": probe.get("accuracy"),
-    }
-
-
 def main():
     ap = argparse.ArgumentParser(description="HECB-Seg downstream call-type recovery")
     ap.add_argument("--n-clips", type=int, default=1500)
@@ -168,16 +135,11 @@ def main():
     clips = sample_clips(args.n_clips, args.seed)
     print(f"{len(clips)} clips with call-type labels", flush=True)
 
-    # ─── Collect whole-call + sub-call fingerprints for matched, labeled calls ───
-    whole_vecs, pooled_vecs, labels = [], [], []
-    call_sub_groups = []  # (parent_label, [sub_fp,...]) for calls with internal segs
-    n_calls_with_internal = 0
-    n_internal_total = 0
-    fp_dim = None
-
     all_spans = [[(s, e) for s, e, _l in calls] for _, calls in clips]
     priors = fit_hecb_priors(all_spans)
 
+    # ─── Per clip: HECB inference → CallEvents → subcall reps (matched calls only) ───
+    all_reps, all_labels = [], []
     for ci, (stem, calls) in enumerate(clips):
         try:
             audio, _ = load_audio(str(WAV / f"{stem}.wav"), target_sr=SR)
@@ -189,143 +151,28 @@ def main():
         typed = [(t, clf.predict_proba(ev.reshape(1, -1))[0]) for t, _p, ev in props]
         events = hecb_decode(crnn_events, typed, priors, file_id=stem)
         matched = match_events_to_calls([e.onset_s * 1000 for e in events], calls, args.tol_ms)
-
-        for ei, ev in enumerate(events):
-            if ei not in matched:
-                continue
-            lab = matched[ei]
-            i = int(ev.onset_s * SR)
-            j = max(int(ev.offset_s * SR), i + int(0.03 * SR))
-            whole_audio = audio[i:j]
-            if len(whole_audio) < int(0.015 * SR):
-                continue
-            wfp = np.asarray(
-                afp.extract(whole_audio, SR, species="meerkat").combined, dtype=np.float32
-            )
-            if not np.any(wfp):
-                continue
-            if fp_dim is None:
-                fp_dim = wfp.shape[0]
-            whole_vecs.append(wfp)
-            labels.append(lab)
-
-            sfps = []
-            for sg in ev.internal_segments:
-                si = int(sg.start_s * SR)
-                sj = max(int(sg.end_s * SR), si + int(0.015 * SR))
-                sseg = audio[si:sj]
-                if len(sseg) < int(0.012 * SR):
-                    continue
-                sfp = np.asarray(
-                    afp.extract(sseg, SR, species="meerkat").combined, dtype=np.float32
-                )
-                if np.any(sfp):
-                    sfps.append(sfp)
-            if sfps:
-                n_calls_with_internal += 1
-                n_internal_total += len(sfps)
-                mean_sub = np.mean(sfps, axis=0)
-                pooled_vecs.append(
-                    np.concatenate(
-                        [
-                            wfp,
-                            mean_sub,
-                            np.array(
-                                [len(sfps), len(sfps) / max(len(ev.internal_segments), 1)],
-                                dtype=np.float32,
-                            ),
-                        ]
-                    )
-                )
-                call_sub_groups.append((lab, sfps))
-            else:
-                pooled_vecs.append(
-                    np.concatenate(
-                        [
-                            wfp,
-                            np.zeros(fp_dim, dtype=np.float32),
-                            np.array([0.0, 0.0], dtype=np.float32),
-                        ]
-                    )
-                )
-
+        matched_events = [e for ei, e in enumerate(events) if ei in matched]
+        matched_labels = [matched[ei] for ei, _ in enumerate(events) if ei in matched]
+        reps = build_subcall_representations(matched_events, audio, SR, fp_fn)
+        # reps aligns 1:1 with matched_events (skips only too-short/silent calls)
+        all_reps.extend(reps)
+        all_labels.extend(matched_labels[: len(reps)])
         if (ci + 1) % 200 == 0:
-            print(
-                f"  {ci + 1}/{len(clips)} clips | {len(whole_vecs)} calls | "
-                f"{n_calls_with_internal} with internal",
-                flush=True,
-            )
+            print(f"  {ci + 1}/{len(clips)} clips | {len(all_reps)} calls", flush=True)
 
-    whole_vecs = np.asarray(whole_vecs, dtype=np.float32)
-    pooled_vecs = np.asarray(pooled_vecs, dtype=np.float32)
-    labels = np.asarray(labels)
-    cat_counts = Counter(labels.tolist())
     print(
-        f"\nmatched labeled calls: {len(whole_vecs)} | fp dim {fp_dim} | "
-        f"call types: {dict(cat_counts)}",
-        flush=True,
-    )
-    print(
-        f"calls with internal boundaries: {n_calls_with_internal} ({n_internal_total} sub-segs)",
+        f"\nmatched labeled calls: {len(all_reps)} | call types: {dict(Counter(all_labels))}",
         flush=True,
     )
 
-    # ─── 1. Whole-call recovery (baseline) ───
-    r_whole = recovery(whole_vecs, labels, args.k)
-    # ─── 2. Pooled (whole + sub-call summary) recovery ───
-    r_pooled = recovery(pooled_vecs, labels, args.k)
-
-    print(f"\n=== Call-type recovery (k={args.k} tokens, MeerKAT) ===")
-    print(f"{'representation':24} {'Cramers V':>10} {'NMI':>8} {'p':>10} {'probe acc':>10}")
-    print("-" * 66)
+    result = whole_sub_pooled_ablation(all_reps, all_labels, k=args.k)
+    print(f"\n=== Whole / sub-call / pooled ablation (k={args.k}, MeerKAT) ===")
+    print(format_ablation_table(result))
+    w, p = result["whole"]["V"], result["pooled"]["V"]
     print(
-        f"{'whole CRNN call':24} {r_whole['V']:10.3f} {r_whole['nmi']:8.3f} "
-        f"{str(r_whole['p']):>10} {str(r_whole['probe']):>10}"
+        f"\n  pooled V ({p:.3f}) {'>' if p > w else '<='} whole V ({w:.3f}) → "
+        f"sub-call structure {'AUGMENTS' if p > w else 'does not augment'} whole-call recovery"
     )
-    print(
-        f"{'whole + sub-call pool':24} {r_pooled['V']:10.3f} {r_pooled['nmi']:8.3f} "
-        f"{str(r_pooled['p']):>10} {str(r_pooled['probe']):>10}"
-    )
-
-    # ─── 3. Sub-call motif structure ───
-    all_sub = (
-        np.concatenate([np.asarray(g[1], dtype=np.float32) for g in call_sub_groups])
-        if call_sub_groups
-        else np.zeros((0, fp_dim), dtype=np.float32)
-    )
-    if len(all_sub) >= args.k * 5:
-        sub_parent = np.asarray([g[0] for g in call_sub_groups for _ in g[1]])
-        r_sub = recovery(all_sub, sub_parent, args.k)
-        print(
-            f"{'sub-call (parent lbl)':24} {r_sub['V']:10.3f} {r_sub['nmi']:8.3f} "
-            f"{str(r_sub['p']):>10} {str(r_sub['probe']):>10}"
-        )
-
-        # Per-call sub-call token sequences → LZ (within-call structural richness)
-        scaler, cents = kmeans_codebook(all_sub, args.k)
-        lz_vals = []
-        for _lab, sfps in call_sub_groups:
-            if len(sfps) < 2:
-                continue
-            toks = tokenize(np.asarray(sfps, dtype=np.float32), scaler, cents)
-            lz_vals.append(lempel_ziv_complexity([int(t) for t in toks]).normalized)
-        if lz_vals:
-            print(
-                f"\n  sub-call structure: {len(all_sub)} sub-segs across "
-                f"{n_calls_with_internal} calls"
-            )
-            print(
-                f"  per-call sub-call LZ76 (normalized): mean={np.mean(lz_vals):.3f} "
-                f"median={np.median(lz_vals):.3f} (within-call token richness)"
-            )
-            print(
-                f"  interpretation: sub-call V={r_sub['V']:.3f} vs whole-call V={r_whole['V']:.3f} "
-                f"→ internal sub-call classes are "
-                f"{'LESS' if r_sub['V'] < r_whole['V'] else 'MORE'} type-discriminative"
-            )
-    else:
-        print(f"\n  (too few sub-segs ({len(all_sub)}) for sub-call recovery test)")
-
     print("HECB DOWNSTREAM DONE")
 
 
