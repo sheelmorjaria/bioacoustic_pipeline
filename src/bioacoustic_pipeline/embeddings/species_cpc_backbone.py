@@ -71,7 +71,18 @@ class SpeciesCPCBackbone(Backbone):
                 strides=(2, 2, 1),  # strides don't affect weight shapes — any valid combo loads
             )
             self._model = CPCModel(encoder_config=enc, ar_config={}, steps_ahead=2)
-            self._model.load_state_dict(sd)
+            # Tolerate extra training-only predictor heads (e.g. predictors.2..5 from a
+            # checkpoint trained with steps_ahead > 2) — they're unused by the encoder-only
+            # embed/embed_frames path. But FAIL if any model key is MISSING from the checkpoint
+            # (that would silently leave random weights on a real layer).
+            model_keys = set(self._model.state_dict().keys())
+            missing = model_keys - set(sd.keys())
+            if missing:
+                raise ValueError(
+                    f"checkpoint missing required model keys (would leave random weights): "
+                    f"{sorted(missing)[:5]}"
+                )
+            self._model.load_state_dict(sd, strict=False)
             self._model.eval()
             # Use the available accelerator + keep model/input on the same device
             # (mirrors CPCBackbone: avoids CUDA/CPU input-vs-weight mismatches).
