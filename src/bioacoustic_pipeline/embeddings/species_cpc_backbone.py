@@ -7,6 +7,7 @@ a dedicated subclass. Each must be registered in the firewall with the correct
 
 # Copyright (c) 2025 Sheel Morjaria. All rights reserved.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -23,8 +24,13 @@ class SpeciesCPCBackbone(Backbone):
 
     view_class = "learned"
 
-    def __init__(self, name: str, provenance_name: str, checkpoint: str | Path | None = None,
-                 embed_dim: int = 256):
+    def __init__(
+        self,
+        name: str,
+        provenance_name: str,
+        checkpoint: str | Path | None = None,
+        embed_dim: int = 256,
+    ):
         self.name = name
         self.provenance_name = provenance_name
         self.embed_dim = embed_dim
@@ -49,13 +55,17 @@ class SpeciesCPCBackbone(Backbone):
                     num_channels.append(sd[key].shape[0])
                     kernel_sizes.append(sd[key].shape[2])
             if len(num_channels) != 3:
-                raise ValueError(f"could not detect 3 conv layers from checkpoint (found {len(num_channels)})")
+                raise ValueError(
+                    f"could not detect 3 conv layers from checkpoint (found {len(num_channels)})"
+                )
             # Final projection (encoder.encoder.8) gives the embedding dim
             final_key = "encoder.encoder.8.weight"
             hidden_dim = sd[final_key].shape[0] if final_key in sd else num_channels[-1]
             self.embed_dim = hidden_dim
             enc = EncoderConfig(
-                sample_rate=16000, frame_size_ms=10, hidden_dim=hidden_dim,
+                sample_rate=16000,
+                frame_size_ms=10,
+                hidden_dim=hidden_dim,
                 num_channels=tuple(num_channels),
                 kernel_sizes=tuple(kernel_sizes),
                 strides=(2, 2, 1),  # strides don't affect weight shapes — any valid combo loads
@@ -63,6 +73,10 @@ class SpeciesCPCBackbone(Backbone):
             self._model = CPCModel(encoder_config=enc, ar_config={}, steps_ahead=2)
             self._model.load_state_dict(sd)
             self._model.eval()
+            # Use the available accelerator + keep model/input on the same device
+            # (mirrors CPCBackbone: avoids CUDA/CPU input-vs-weight mismatches).
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            self._model = self._model.to(device)
         except Exception as exc:  # noqa: BLE001
             self._err = f"{type(exc).__name__}: {exc}"
 
@@ -83,8 +97,10 @@ class SpeciesCPCBackbone(Backbone):
             return np.zeros(self.embed_dim, dtype=np.float32)
         frames = audio[: n_frames * frame].reshape(1, n_frames, frame)
         with torch.no_grad():
-            z, _, _ = self._model(torch.from_numpy(frames.astype(np.float32)))
-        return z.squeeze(0).mean(dim=0).numpy().astype(np.float32)
+            x = torch.from_numpy(frames.astype(np.float32))
+            x = x.to(next(self._model.parameters()).device)
+            z, _, _ = self._model(x)
+        return z.squeeze(0).mean(dim=0).cpu().numpy().astype(np.float32)
 
     def embed_frames(self, audio: np.ndarray, sr: int) -> np.ndarray:
         """Per-frame CPC latents (n_frames, embed_dim) at 10 ms hop."""
@@ -96,5 +112,7 @@ class SpeciesCPCBackbone(Backbone):
             return np.zeros((2, self.embed_dim), dtype=np.float32)
         frames = audio[: n_frames * frame].reshape(1, n_frames, frame)
         with torch.no_grad():
-            z, _, _ = self._model(torch.from_numpy(frames.astype(np.float32)))
-        return z.squeeze(0).numpy().astype(np.float32)
+            x = torch.from_numpy(frames.astype(np.float32))
+            x = x.to(next(self._model.parameters()).device)
+            z, _, _ = self._model(x)
+        return z.squeeze(0).cpu().numpy().astype(np.float32)

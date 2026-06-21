@@ -48,7 +48,9 @@ class CPCBackbone(Backbone):
     embed_dim = 256
 
     def __init__(self, checkpoint: str | Path | None = None):
-        self._checkpoint = checkpoint or str(REPO_ROOT / "checkpoints" / "human_cpc_phonetic" / "best_model.pt")
+        self._checkpoint = checkpoint or str(
+            REPO_ROOT / "checkpoints" / "human_cpc_phonetic" / "best_model.pt"
+        )
         self._model = None
         self._err = None
         try:
@@ -57,14 +59,22 @@ class CPCBackbone(Backbone):
             from bioacoustic_pipeline.embeddings.cpc_trainer import CPCModel  # noqa: PLC0415
 
             enc = EncoderConfig(
-                sample_rate=16000, frame_size_ms=10, hidden_dim=256,
-                num_channels=(128, 256, 256), kernel_sizes=(5, 5, 3), strides=(2, 2, 1),
+                sample_rate=16000,
+                frame_size_ms=10,
+                hidden_dim=256,
+                num_channels=(128, 256, 256),
+                kernel_sizes=(5, 5, 3),
+                strides=(2, 2, 1),
             )
             m = CPCModel(encoder_config=enc, ar_config={}, steps_ahead=2)
             ckpt = torch.load(self._checkpoint, map_location="cpu", weights_only=False)
             m.load_state_dict(ckpt["model_state_dict"])
             m.eval()
-            self._model = m
+            # Use the available accelerator + keep model/input on the same device
+            # (avoids CUDA/CPU input-vs-weight mismatches when a caller or global
+            # default device differs from the model's).
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            self._model = m.to(device)
         except Exception as exc:  # noqa: BLE001
             self._err = f"{type(exc).__name__}: {exc}"
 
@@ -94,8 +104,10 @@ class CPCBackbone(Backbone):
             return np.zeros((2, self.embed_dim), dtype=np.float32)
         frames = audio[: n_frames * frame].reshape(1, n_frames, frame)
         with torch.no_grad():
-            z, _, _ = self._model(torch.from_numpy(frames.astype(np.float32)))
-        return z.squeeze(0).numpy().astype(np.float32)
+            x = torch.from_numpy(frames.astype(np.float32))
+            x = x.to(next(self._model.parameters()).device)
+            z, _, _ = self._model(x)
+        return z.squeeze(0).cpu().numpy().astype(np.float32)
 
 
 class BioMAEBackbone(Backbone):
