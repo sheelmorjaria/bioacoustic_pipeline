@@ -22,10 +22,10 @@ Hierarchical event model:
 
 # Copyright (c) 2025 Sheel Morjaria. All rights reserved.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable
 
 import numpy as np
 
@@ -128,13 +128,15 @@ def proba_to_call_events(
                 if duration_ms >= min_duration_ms:
                     onset_s = (start_frame + start_index) * frame_ms / 1000.0
                     offset_s = (i + start_index) * frame_ms / 1000.0
-                    events.append(CallEvent(
-                        call_id=f"{file_id}_call{call_counter}",
-                        file_id=file_id,
-                        onset_s=onset_s,
-                        offset_s=offset_s,
-                        crnn_confidence=confidence_sum / (i - start_frame),
-                    ))
+                    events.append(
+                        CallEvent(
+                            call_id=f"{file_id}_call{call_counter}",
+                            file_id=file_id,
+                            onset_s=onset_s,
+                            offset_s=offset_s,
+                            crnn_confidence=confidence_sum / (i - start_frame),
+                        )
+                    )
                     call_counter += 1
             else:
                 confidence_sum += p
@@ -145,13 +147,15 @@ def proba_to_call_events(
         if duration_ms >= min_duration_ms:
             onset_s = (start_frame + start_index) * frame_ms / 1000.0
             offset_s = (len(proba) + start_index) * frame_ms / 1000.0
-            events.append(CallEvent(
-                call_id=f"{file_id}_call{call_counter}",
-                file_id=file_id,
-                onset_s=onset_s,
-                offset_s=offset_s,
-                crnn_confidence=confidence_sum / (len(proba) - start_frame),
-            ))
+            events.append(
+                CallEvent(
+                    call_id=f"{file_id}_call{call_counter}",
+                    file_id=file_id,
+                    onset_s=onset_s,
+                    offset_s=offset_s,
+                    crnn_confidence=confidence_sum / (len(proba) - start_frame),
+                )
+            )
 
     return events
 
@@ -199,6 +203,7 @@ def segment_call_internally(
 
     if calibrator is not None and getattr(calibrator, "fitted", False):
         from bioacoustic_pipeline.orchestration import CALIBRATOR_PROPOSAL  # noqa: PLC0415
+
         proposals = generate_proposals(signals, **CALIBRATOR_PROPOSAL)
         kept, _abstained = calibrator.apply(proposals)
         boundaries = [(b.time_ms / 1000.0, b.boundary_type, b.confidence) for b in kept]
@@ -229,13 +234,15 @@ def segment_call_internally(
             continue
         bt = boundaries[i][1] if i < len(boundaries) else "transitional"
         conf = boundaries[i][2] if i < len(boundaries) else 1.0
-        segments.append(InternalSegment(
-            parent_call_id=call.call_id,
-            start_s=call.onset_s + seg_start,
-            end_s=call.onset_s + seg_end,
-            boundary_type=bt,
-            nbd_confidence=conf,
-        ))
+        segments.append(
+            InternalSegment(
+                parent_call_id=call.call_id,
+                start_s=call.onset_s + seg_start,
+                end_s=call.onset_s + seg_end,
+                boundary_type=bt,
+                nbd_confidence=conf,
+            )
+        )
 
     return segments
 
@@ -281,9 +288,182 @@ def two_stage_segment(
     if internal_segmentation:
         for event in events:
             event.internal_segments = segment_call_internally(
-                event, audio, sr, profile,
+                event,
+                audio,
+                sr,
+                profile,
                 min_call_duration_ms=min_internal_duration_ms,
                 calibrator=calibrator,
             )
 
     return events
+
+
+# ─── HECB-Seg typed internal-boundary decoder (Stages 3-5) ────────────────────
+#
+# HECB-Seg = Hierarchical Event-Conditioned Boundary Segmentation. The PCEN+CRNN
+# detector (Stage 1, `proba_to_call_events`) is the AUTHORITATIVE call-event
+# detector — its threshold-crossing onset/offset (~21 ms MAE on MeerKAT) is already
+# more precise than any 20 ms-quantized NBD proposal. So this layer does NOT refine
+# CRNN call-event boundaries (snapping is opt-in and off by default; it empirically
+# coarsens them). Its job is to ANNOTATE typed internal sub-call structure inside
+# long/complex calls: each NBD proposal inside a CRNN event is classified
+# (onset/offset/internal/noise) by a trained typed classifier, and the internal-typed
+# ones become InternalSegments. This gives downstream representation/motif analysis a
+# sub-call structure the CRNN alone cannot provide.
+#
+# Inputs are in MILLISECONDS (matching NBD proposal times); outputs are CallEvents in
+# seconds (matching the rest of this module). Pure-stdlib (numpy only) — the
+# torch-dependent CRNN inference + typed-classifier training live in
+# `scripts/train_hecb_seg.py`; this is the decoder the script and pipeline share.
+
+HECB_ONSET = 1
+HECB_OFFSET = 2
+HECB_INTERNAL = 3
+HECB_NOISE = 0
+
+# Conservative-snap gate (opt-in; OFF by default because snapping coarsens CRNN timing).
+HECB_SNAP_CONF = 0.5
+HECB_SNAP_DIST_MS = 60.0
+
+
+@dataclass
+class HECBDurationPriors:
+    """Call-duration / gap priors learned from ground-truth spans (Stage 5 constraints)."""
+
+    min_call_ms: float = 40.0
+    max_call_ms: float = 2000.0
+    min_gap_ms: float = 30.0
+    max_internal_per_call: int = 5
+    median_call_ms: float = 100.0
+
+
+def fit_hecb_priors(gt_spans_sec: list[list[tuple[float, float]]]) -> HECBDurationPriors:
+    """Learn call-duration + inter-call-gap priors from GT spans (seconds)."""
+    durs = [(e - s) * 1000.0 for spans in gt_spans_sec for s, e in spans]
+    gaps: list[float] = []
+    for spans in gt_spans_sec:
+        ss = sorted(spans)
+        for i in range(1, len(ss)):
+            gaps.append((ss[i][0] - ss[i - 1][1]) * 1000.0)
+    return HECBDurationPriors(
+        min_call_ms=max(30.0, float(np.percentile(durs, 5)) if durs else 40.0),
+        max_call_ms=min(5000.0, float(np.percentile(durs, 99)) if durs else 2000.0),
+        min_gap_ms=max(20.0, float(np.percentile(gaps, 5)) if gaps else 30.0),
+        median_call_ms=float(np.median(durs)) if durs else 100.0,
+    )
+
+
+def _safe_snap(
+    boundary_ms: float,
+    ev_props: list[tuple[float, np.ndarray]],
+    label_idx: int,
+    conf: float,
+    dist_ms: float,
+) -> float:
+    """Snap a CRNN boundary to a typed proposal only if one is high-confidence (``conf``),
+    close (``dist_ms``), and role-matched (``label_idx``). Otherwise keep the CRNN
+    boundary verbatim. Pass conf=inf to disable snapping entirely."""
+    cands = [
+        (t, p[label_idx])
+        for t, p in ev_props
+        if p[label_idx] > conf and abs(t - boundary_ms) < dist_ms
+    ]
+    if not cands:
+        return boundary_ms
+    return max(cands, key=lambda x: x[1])[0]
+
+
+def hecb_decode(
+    crnn_events: list[tuple[float, float, float]],
+    typed_proposals: list[tuple[float, np.ndarray]],
+    priors: HECBDurationPriors,
+    *,
+    pad_ms: float = 50.0,
+    snap: bool = False,
+    snap_conf: float = HECB_SNAP_CONF,
+    snap_dist_ms: float = HECB_SNAP_DIST_MS,
+    min_internal_call_ms: float = 250.0,
+    file_id: str = "",
+) -> list[CallEvent]:
+    """Stage 5: decode CRNN events + typed proposals into CallEvents with internal segments.
+
+    The CRNN detector is authoritative for call-event onset/offset (kept verbatim unless
+    ``snap=True``). For each event, internal-typed proposals (with confidence > 0.3, inside
+    the call body, respecting min-gap + max-count) become InternalSegments — but only for
+    calls longer than ``min_internal_call_ms`` (short calls are atomic units). Events shorter
+    than ``priors.min_call_ms`` are rejected (spurious).
+
+    Args:
+        crnn_events: [(onset_ms, offset_ms, confidence), ...].
+        typed_proposals: [(time_ms, proba_4vec), ...] where proba_4vec is indexed by
+            [HECB_NOISE, HECB_ONSET, HECB_OFFSET, HECB_INTERNAL].
+        priors: learned HECBDurationPriors.
+        snap: enable conservative onset/offset snapping (default False — preserve CRNN).
+        snap_conf / snap_dist_ms: snap gate (only used when snap=True).
+        min_internal_call_ms: only segment calls longer than this internally.
+        file_id: source file id for generated call_ids.
+
+    Returns: list[CallEvent] (seconds), each with typed InternalSegments where applicable.
+    """
+    conf = snap_conf if snap else float("inf")
+    dist = snap_dist_ms if snap else float("inf")
+    decoded: list[CallEvent] = []
+    for ev_idx, (onset_ms, offset_ms, ev_conf) in enumerate(crnn_events):
+        ev_props = [
+            (t, p) for t, p in typed_proposals if onset_ms - pad_ms <= t <= offset_ms + pad_ms
+        ]
+
+        refined_onset = _safe_snap(onset_ms, ev_props, HECB_ONSET, conf, dist)
+        refined_offset = _safe_snap(offset_ms, ev_props, HECB_OFFSET, conf, dist)
+        if refined_offset <= refined_onset:
+            refined_offset = offset_ms
+
+        call_dur = refined_offset - refined_onset
+        if call_dur < priors.min_call_ms:
+            continue  # reject spurious short event
+        if call_dur > priors.max_call_ms:
+            refined_offset = refined_onset + priors.max_call_ms
+            call_dur = priors.max_call_ms
+
+        call = CallEvent(
+            call_id=f"{file_id}_hecb{ev_idx}" if file_id else f"hecb{ev_idx}",
+            file_id=file_id,
+            onset_s=refined_onset / 1000.0,
+            offset_s=refined_offset / 1000.0,
+            crnn_confidence=ev_conf,
+        )
+
+        # Typed internal boundaries (only for long calls)
+        if call_dur > min_internal_call_ms:
+            internal_props = [
+                (t, p[HECB_INTERNAL])
+                for t, p in ev_props
+                if p[HECB_INTERNAL] > 0.3 and refined_onset + 50 < t < refined_offset - 50
+            ]
+            internal_props.sort(key=lambda x: -x[1])  # confidence desc
+            placed: list[float] = []
+            for t, _prob in internal_props:
+                if len(placed) >= priors.max_internal_per_call:
+                    break
+                if all(abs(t - pt) > priors.min_gap_ms for pt in placed):
+                    placed.append(t)
+            # Build InternalSegments from sorted boundary points
+            cuts = sorted(placed)
+            edges = (
+                [refined_onset / 1000.0] + [c / 1000.0 for c in cuts] + [refined_offset / 1000.0]
+            )
+            for k in range(len(edges) - 1):
+                call.internal_segments.append(
+                    InternalSegment(
+                        parent_call_id=call.call_id,
+                        start_s=edges[k],
+                        end_s=edges[k + 1],
+                        boundary_type="internal",
+                        nbd_confidence=1.0,
+                    )
+                )
+
+        decoded.append(call)
+
+    return decoded
