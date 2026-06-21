@@ -120,6 +120,10 @@ class Segment:
     # Opt-in physics-grounded descriptor (acoustic_fingerprint.SegmentFingerprint);
     # None unless run_pipeline(fingerprint=True).
     fingerprint = None
+    # HECB hierarchical sub-call boundaries (start_ms, end_ms) inside this call segment.
+    # None for flat NBD segmentation; populated when segmentation="hecb" (each Segment is
+    # a whole call carrying its typed internal boundaries — the augmentation layer).
+    internal_segments: list | None = None
 
 
 def _detector_to_boundary_type(detector: str) -> str:
@@ -210,6 +214,51 @@ def segment_audio(
     return segments
 
 
+def _segment_for_pipeline(
+    audio, sr, profile, species, segmentation, hecb_state, *, calibrator=None, cpc=None
+) -> list[Segment]:
+    """Dispatch segmentation: HECB (calls-in-noise) or NBD (speech-like / default).
+
+    HECB produces whole-call Segments (one per CRNN call event), each carrying its typed
+    ``internal_segments`` (sub-call boundaries, the augmentation layer). Falls back to NBD
+    when HECB is requested but unavailable (no torch / no checkpoint for the species).
+    """
+    if segmentation == "hecb" and hecb_state and hecb_state.get("available"):
+        from bioacoustic_pipeline.segmentation import hecb as hecb_mod  # noqa: PLC0415
+
+        calls = hecb_mod.hecb_segment_audio(
+            audio,
+            sr,
+            hecb_state["crnn"],
+            hecb_state["clf"],
+            hecb_state["dsp"],
+            profile=profile,
+            device=hecb_state["device"],
+        )
+        segs: list[Segment] = []
+        min_samples = max(int(sr * 0.01), 1)
+        for call in calls:
+            s = int(call.onset_s * sr)
+            e = int(call.offset_s * sr)
+            if e - s < min_samples:
+                continue
+            seg = Segment(
+                call.onset_s * 1000.0,
+                call.offset_s * 1000.0,
+                "hecb_call",
+                float(call.crnn_confidence),
+                audio[s:e],
+                sr,
+            )
+            seg.internal_segments = [
+                (sg.start_s * 1000.0, sg.end_s * 1000.0) for sg in call.internal_segments
+            ]
+            segs.append(seg)
+        return segs
+    # default / fallback
+    return segment_audio(audio, sr, profile, calibrator=calibrator, cpc=cpc)
+
+
 def run_pipeline(
     audio_paths,
     species: str,
@@ -226,6 +275,7 @@ def run_pipeline(
     seed: int = 0,
     intermediates: dict | None = None,
     segment_source: SegmentSource | None = None,
+    segmentation: str = "nbd",
 ) -> tuple[dict, dict]:
     """Run raw audio files -> (schema-valid verdict report, execution trace).
 
@@ -288,11 +338,34 @@ def run_pipeline(
     if segment_source is not None and tk_available:
         assert_compatible(tokenizer, segment_source, head_kind="vq_vae")
 
+    # HECB segmentation (calls-in-noise): PCEN+CRNN call events + typed internal
+    # boundaries. Loads checkpoints/hecb/{crnn.pt,typed.pkl} once; species-specific
+    # (currently meerkat). Falls back with a trace flag if unavailable.
+    hecb_state = None
+    if segmentation == "hecb":
+        from bioacoustic_pipeline.segmentation import hecb as hecb_mod  # noqa: PLC0415
+
+        device = "cuda" if hecb_mod.torch.cuda.is_available() else "cpu"
+        crnn, clf, dsp = hecb_mod.load_hecb(species, device)
+        if crnn is None:
+            hecb_state = {
+                "available": False,
+                "reason": hecb_mod.load_error or "no checkpoints/hecb for species",
+            }
+        else:
+            hecb_state = {
+                "available": True,
+                "crnn": crnn,
+                "clf": clf,
+                "dsp": dsp,
+                "device": device,
+            }
+
     tokens: list[int] = []
     boundary_types: list[str] = []
     sequences: list[list[int]] = []
     token_fps: list[tuple[int, np.ndarray]] = []  # (token, fingerprint.combined)
-    n_files = n_loaded = n_segments = n_fingerprinted = 0
+    n_files = n_loaded = n_segments = n_fingerprinted = n_internal = 0
 
     # Optional intermediates sink for reproducibility materialization (deterministic run).
     # Populated only when a dict is passed in; never affects the verdict or trace shape.
@@ -308,8 +381,12 @@ def run_pipeline(
             continue
         n_loaded += 1
 
-        segs = segment_audio(audio, sr, profile, calibrator=calibrator, cpc=cpc)
+        segs = _segment_for_pipeline(
+            audio, sr, profile, species, segmentation, hecb_state, calibrator=calibrator, cpc=cpc
+        )
         n_segments += len(segs)
+        if segmentation == "hecb":
+            n_internal += sum(len(s.internal_segments) for s in segs if s.internal_segments)
 
         if fingerprint:  # physics-grounded descriptor, post-segmentation / pre-tokenization
             from bioacoustic_pipeline.diagnostics import acoustic_fingerprint as afp  # noqa: PLC0415
@@ -478,6 +555,16 @@ def run_pipeline(
         "tokenizer_available": tk_available,
         "tokenizer_skipped_reason": tk_skip,
         "calibrator_fitted": cal_fitted,
+        "segmentation": segmentation,
+        "hecb": (
+            {
+                "available": hecb_state["available"],
+                "reason": hecb_state.get("reason"),
+                "n_internal_boundaries": n_internal,
+            }
+            if segmentation == "hecb" and hecb_state
+            else None
+        ),
         "bank_report": bank.report() if bank is not None else None,
         "with_null": with_null,
         "acoustic_fingerprint": afp_trace,
