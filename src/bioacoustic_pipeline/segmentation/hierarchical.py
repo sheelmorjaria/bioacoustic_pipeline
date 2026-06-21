@@ -384,15 +384,19 @@ def hecb_decode(
     snap_conf: float = HECB_SNAP_CONF,
     snap_dist_ms: float = HECB_SNAP_DIST_MS,
     min_internal_call_ms: float = 250.0,
+    gate_durations: bool = False,
     file_id: str = "",
 ) -> list[CallEvent]:
     """Stage 5: decode CRNN events + typed proposals into CallEvents with internal segments.
 
-    The CRNN detector is authoritative for call-event onset/offset (kept verbatim unless
-    ``snap=True``). For each event, internal-typed proposals (with confidence > 0.3, inside
-    the call body, respecting min-gap + max-count) become InternalSegments — but only for
-    calls longer than ``min_internal_call_ms`` (short calls are atomic units). Events shorter
-    than ``priors.min_call_ms`` are rejected (spurious).
+    The CRNN detector is AUTHORITATIVE for call-event onset/offset. By default
+    (``snap=False``, ``gate_durations=False``) every CRNN event is preserved verbatim and
+    HECB only *annotates* typed internal sub-call boundaries — onset/offset are never
+    altered. ``snap=True`` opt-in refines edges to typed proposals; ``gate_durations=True``
+    opt-in rejects sub-``priors.min_call_ms`` events and clamps over-``max_call_ms`` ones
+    (spurious-event hygiene). For each event, internal-typed proposals (confidence > 0.3,
+    inside the call body, respecting min-gap + max-count) become InternalSegments — but only
+    for calls longer than ``min_internal_call_ms`` (short calls are atomic units).
 
     Args:
         crnn_events: [(onset_ms, offset_ms, confidence), ...].
@@ -402,6 +406,8 @@ def hecb_decode(
         snap: enable conservative onset/offset snapping (default False — preserve CRNN).
         snap_conf / snap_dist_ms: snap gate (only used when snap=True).
         min_internal_call_ms: only segment calls longer than this internally.
+        gate_durations: opt-in min/max duration gating (default False — strict CRNN
+            preservation: no event dropped, no offset clamped).
         file_id: source file id for generated call_ids.
 
     Returns: list[CallEvent] (seconds), each with typed InternalSegments where applicable.
@@ -420,11 +426,12 @@ def hecb_decode(
             refined_offset = offset_ms
 
         call_dur = refined_offset - refined_onset
-        if call_dur < priors.min_call_ms:
-            continue  # reject spurious short event
-        if call_dur > priors.max_call_ms:
-            refined_offset = refined_onset + priors.max_call_ms
-            call_dur = priors.max_call_ms
+        if gate_durations:
+            if call_dur < priors.min_call_ms:
+                continue  # opt-in: reject spurious short event
+            if call_dur > priors.max_call_ms:
+                refined_offset = refined_onset + priors.max_call_ms
+                call_dur = priors.max_call_ms
 
         call = CallEvent(
             call_id=f"{file_id}_hecb{ev_idx}" if file_id else f"hecb{ev_idx}",

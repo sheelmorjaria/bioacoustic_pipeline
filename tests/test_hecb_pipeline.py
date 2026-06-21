@@ -6,6 +6,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import soundfile as sf
@@ -15,8 +16,13 @@ from bioacoustic_pipeline.representation.dual_stream import (
     build_dual_stream,
     build_dual_stream_from_calls,
 )
-from bioacoustic_pipeline.segmentation.hierarchical import CallEvent, InternalSegment
 from bioacoustic_pipeline.segmentation import hecb as hecb_mod
+from bioacoustic_pipeline.segmentation.hierarchical import (
+    CallEvent,
+    HECBDurationPriors,
+    InternalSegment,
+    hecb_decode,
+)
 from bioacoustic_pipeline.verdict_engine import is_valid, validate_report
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -153,8 +159,55 @@ class TestRunPipelineSegmentation(unittest.TestCase):
         self.assertTrue(is_valid(report), validate_report(report))
         self.assertEqual(trace["segmentation"], "hecb")
         self.assertTrue(trace["hecb"]["available"])
-        # n_internal_boundaries is a non-negative int (CRNN may find 0 calls on synthetic)
-        self.assertIsInstance(trace["hecb"]["n_internal_boundaries"], int)
+        # n_internal_segments is a non-negative int (CRNN may find 0 calls on synthetic)
+        self.assertIsInstance(trace["hecb"]["n_internal_segments"], int)
+
+    def test_hecb_falls_back_when_torch_unavailable(self):
+        """F1: if hecb_mod.available is False, run_pipeline must NOT touch hecb_mod.torch
+        (which is None) — it must fall back to NBD without an AttributeError."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = _write_wav(tmp, _bursts())
+            with (
+                patch.object(hecb_mod, "available", False),
+                patch.object(hecb_mod, "load_error", "simulated: torch missing"),
+            ):
+                report, trace = run_pipeline(
+                    [path],
+                    "human",
+                    tokenizer=_FakeTokenizer(),
+                    segmentation="hecb",
+                    calibrator=False,
+                )
+        self.assertTrue(is_valid(report), validate_report(report))
+        self.assertEqual(trace["segmentation"], "hecb")
+        self.assertFalse(trace["hecb"]["available"])
+        self.assertIn("simulated", trace["hecb"]["reason"])
+
+
+class TestHecbDecodeDurationGate(unittest.TestCase):
+    """F5: gate_durations is opt-in; default preserves CRNN events verbatim."""
+
+    def _decode(self, events, gate):
+        return hecb_decode(
+            events,
+            typed_proposals=[],
+            priors=HECBDurationPriors(),
+            gate_durations=gate,
+        )
+
+    def test_short_event_preserved_when_gate_off(self):
+        # 10 ms < priors.min_call_ms (40): dropped only when gate is ON.
+        off = self._decode([(0.0, 10.0, 0.9)], gate=False)
+        on = self._decode([(0.0, 10.0, 0.9)], gate=True)
+        self.assertEqual(len(off), 1)  # strict preservation: event kept
+        self.assertEqual(len(on), 0)  # gating rejects sub-threshold event
+
+    def test_long_event_offset_clamped_only_when_gate_on(self):
+        # 5000 ms > priors.max_call_ms (2000): offset clamped only when gate is ON.
+        off = self._decode([(0.0, 5000.0, 0.9)], gate=False)
+        on = self._decode([(0.0, 5000.0, 0.9)], gate=True)
+        self.assertEqual(off[0].offset_s, 5.0)  # preserved verbatim
+        self.assertEqual(on[0].offset_s, 2.0)  # clamped to max_call_ms
 
 
 if __name__ == "__main__":

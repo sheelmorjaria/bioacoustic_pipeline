@@ -151,12 +151,16 @@ def main():
         typed = [(t, clf.predict_proba(ev.reshape(1, -1))[0]) for t, _p, ev in props]
         events = hecb_decode(crnn_events, typed, priors, file_id=stem)
         matched = match_events_to_calls([e.onset_s * 1000 for e in events], calls, args.tol_ms)
-        matched_events = [e for ei, e in enumerate(events) if ei in matched]
-        matched_labels = [matched[ei] for ei, _ in enumerate(events) if ei in matched]
-        reps = build_subcall_representations(matched_events, audio, SR, fp_fn)
-        # reps aligns 1:1 with matched_events (skips only too-short/silent calls)
-        all_reps.extend(reps)
-        all_labels.extend(matched_labels[: len(reps)])
+        # Build reps per-event so a label can never attach to the wrong call:
+        # build_subcall_representations may skip ANY event (too-short / silent / OOB),
+        # so a batch build + [:len(reps)] slice misaligns labels when a middle call is dropped.
+        for ei, ev in enumerate(events):
+            if ei not in matched:
+                continue
+            reps = build_subcall_representations([ev], audio, SR, fp_fn)
+            if reps:  # this event produced a whole-call rep (not skipped)
+                all_reps.append(reps[0])
+                all_labels.append(matched[ei])
         if (ci + 1) % 200 == 0:
             print(f"  {ci + 1}/{len(clips)} clips | {len(all_reps)} calls", flush=True)
 

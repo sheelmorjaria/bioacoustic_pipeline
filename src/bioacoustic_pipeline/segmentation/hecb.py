@@ -32,15 +32,17 @@ from bioacoustic_pipeline.segmentation.nbd_proposal import compute_signals, gene
 # Match orchestration.CALIBRATOR_PROPOSAL (inlined to avoid a circular import).
 _PROPOSAL = {"floor_energy": 0.04, "floor_flux": 0.02, "debounce_ms": 25.0}
 
-try:  # lazy torch — module stays importable without the ml extra
+try:  # lazy torch + torchaudio — module stays importable without the ml extra
     import torch
     import torch.nn as nn
+    import torchaudio  # noqa: F401 — required by compute_pcen (mel filterbanks)
 
     _TORCH = True
     _TORCH_ERR = ""
 except Exception as exc:  # noqa: BLE001
     torch = None
     nn = None
+    torchaudio = None
     _TORCH = False
     _TORCH_ERR = repr(exc)
 

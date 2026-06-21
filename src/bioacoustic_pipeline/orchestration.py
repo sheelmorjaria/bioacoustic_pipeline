@@ -251,7 +251,13 @@ def _segment_for_pipeline(
                 sr,
             )
             seg.internal_segments = [
-                (sg.start_s * 1000.0, sg.end_s * 1000.0) for sg in call.internal_segments
+                {
+                    "start_ms": sg.start_s * 1000.0,
+                    "end_ms": sg.end_s * 1000.0,
+                    "boundary_type": sg.boundary_type,
+                    "nbd_confidence": sg.nbd_confidence,
+                }
+                for sg in call.internal_segments
             ]
             segs.append(seg)
         return segs
@@ -345,21 +351,24 @@ def run_pipeline(
     if segmentation == "hecb":
         from bioacoustic_pipeline.segmentation import hecb as hecb_mod  # noqa: PLC0415
 
-        device = "cuda" if hecb_mod.torch.cuda.is_available() else "cpu"
-        crnn, clf, dsp = hecb_mod.load_hecb(species, device)
-        if crnn is None:
-            hecb_state = {
-                "available": False,
-                "reason": hecb_mod.load_error or "no checkpoints/hecb for species",
-            }
+        if not hecb_mod.available:  # torch/torchaudio missing → don't touch hecb_mod.torch
+            hecb_state = {"available": False, "reason": hecb_mod.load_error}
         else:
-            hecb_state = {
-                "available": True,
-                "crnn": crnn,
-                "clf": clf,
-                "dsp": dsp,
-                "device": device,
-            }
+            device = "cuda" if hecb_mod.torch.cuda.is_available() else "cpu"
+            crnn, clf, dsp = hecb_mod.load_hecb(species, device)
+            if crnn is None:
+                hecb_state = {
+                    "available": False,
+                    "reason": "no checkpoints/hecb for species",
+                }
+            else:
+                hecb_state = {
+                    "available": True,
+                    "crnn": crnn,
+                    "clf": clf,
+                    "dsp": dsp,
+                    "device": device,
+                }
 
     tokens: list[int] = []
     boundary_types: list[str] = []
@@ -560,7 +569,7 @@ def run_pipeline(
             {
                 "available": hecb_state["available"],
                 "reason": hecb_state.get("reason"),
-                "n_internal_boundaries": n_internal,
+                "n_internal_segments": n_internal,
             }
             if segmentation == "hecb" and hecb_state
             else None
