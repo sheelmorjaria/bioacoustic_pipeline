@@ -1,0 +1,14 @@
+{
+  "experiment": "nbd_calibration_comparison_librispeech",
+  "dataset": "LibriSpeech train-clean-360",
+  "n_train": 50, "n_test": 30, "tolerance_ms": 50, "evaluator": "one_to_one_greedy",
+  "date": "2026-06-21",
+  "methods": {
+    "raw_nbd": {"F1": 0.270, "P": 0.157, "R": 0.960, "pred_per_gt": 6.1, "uses_cpc": false},
+    "scalar_gbt_19feat": {"F1": 0.450, "P": 0.445, "R": 0.455, "pred_per_gt": 1.0, "uses_cpc": false},
+    "cpc_context_gbt": {"F1": 0.458, "P": 0.327, "R": 0.765, "pred_per_gt": 2.3, "uses_cpc": true},
+    "crnn_mask_gated_nbd": {"F1": 0.293, "P": 0.174, "R": 0.935, "pred_per_gt": 5.4, "uses_cpc": false}
+  },
+  "headline_finding": "Under strict one-to-one word-boundary evaluation, scalar GBT (F1=0.450) nearly matches CPC-context GBT (F1=0.458). The previously reported CPC-context F1=0.836 is the multi-resolution combined metric, which credits word-FPs aligning to phoneme boundaries. CPC is not required for the core segmentation pipeline.",
+  "architecture_implication": "Production segmentation is CPC-free: PCEN+CRNN for calls in noise, scalar GBT for speech-like calibration. CPC retained only as optional human validation/diagnostic."
+}
