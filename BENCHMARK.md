@@ -260,3 +260,53 @@ fundamental — context IS partially recoverable (4.7×) when acoustic + social 
 combined. This is the strongest Track C claim: *the pipeline identifies what acoustics
 encode (call form, caller identity) and what they don't (ethological context), pointing
 directly to the multimodal covariates needed for Track C.*
+
+---
+
+## 10. Sub-call motif structure report (InfantMarmosetsVox, 2026-06-22)
+
+`scripts/subcall_motifs.py` + `scripts/motif_controls.py` — 2423 vocalisations, k=12
+fingerprint-cluster sub-call vocabulary, mean 3.4 sub-calls/vocalisation.
+
+### Position-specialized clusters (onset/body/offset roles)
+
+| cluster | first% | middle% | last% | **role** | calltype V | caller V |
+|---|---|---|---|---|---|---|
+| **7** | **84.0** | 15.7 | 0.2 | **onset** | — | — |
+| **1** | 0.6 | 4.2 | **92.4** | **offset** | — | — |
+| **0** | 2.3 | **97.6** | 0.1 | **body** | — | — |
+| **10** | 0.0 | **100.0** | 0.0 | **body** | — | — |
+| **11** | 0.2 | **99.8** | 0.0 | **body** | — | — |
+| **3** | 29.7 | **68.3** | 2.0 | body (onset-leaning) | — | — |
+
+### Calltype-enriched motifs (top by V)
+
+| level | motif | count | calltype V | p |
+|---|---|---|---|---|
+| 1-gram | cluster 0 | 1408 | 0.653 | <0.0001 |
+| 1-gram | cluster 7 | 1092 | 0.650 | <0.0001 |
+| 2-gram | (0, 0) | 462 | 0.398 | <0.0001 |
+| 2-gram | (0, 7) | 307 | 0.372 | <0.0001 |
+| 3-gram | (11, 11, 11) | 175 | 0.242 | <0.0001 |
+| 3-gram | (0, 7, 0) | 104 | 0.227 | <0.0001 |
+
+### Control summary
+
+| control | result |
+|---|---|
+| bootstrap stability (bigram Jaccard) | **1.000** (STABLE) |
+| bootstrap stability (trigram Jaccard) | **0.773** (STABLE) |
+| position enrichment | onset/body/offset roles confirmed (84%/92%/97-100%) |
+| within-Phee caller motifs | (10,0) V=0.186 p<0.0001 — caller signal genuine |
+| bigram-preserving trigram null | 374 vs 381±5 (5th pct) — trigrams ≈ bigram-explained |
+| token-shuffle bigram richness | 94 vs 104±1 — **non-random** (constrained order) |
+
+### Manuscript-ready claim
+
+HECB-derived sub-call units are stable, non-random, and positionally specialized.
+Cluster 7 occurred in first position for 84% of its appearances, cluster 1 in final
+position for 92%, and clusters 0/10/11 in middle positions for 97–100%. These results
+indicate that HECB's typed onset/offset/internal labels correspond to recurrent acoustic
+roles within vocalisations. Bootstrap and caller-balanced controls confirmed motif
+stability and calltype association, while trigram-null analysis showed that most
+higher-order structure was explained by local bigram transitions rather than long-range syntax.
