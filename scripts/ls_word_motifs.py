@@ -237,8 +237,8 @@ def main():
         print(f"\n  {n}-grams: {len(counts)} distinct, top 5:")
         for motif, cnt in counts.most_common(5):
             # Enrichment: does this motif preferentially appear in certain words?
-            has = [(tuple(motif) == tuple(w["tokens"][i:i+n])
-                    for i in range(len(w["tokens"]) - n + 1))) for w in word_records
+            has = [any(tuple(motif) == tuple(w["tokens"][i:i+n])
+                   for i in range(len(w["tokens"]) - n + 1))
                    for w in word_records]
             words_with = [w["word"] for h, w in zip(has, word_records) if h]
             top_word = Counter(words_with).most_common(1)[0] if words_with else ("?", 0)
