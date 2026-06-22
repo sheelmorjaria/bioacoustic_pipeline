@@ -44,6 +44,7 @@ class DualStreamSubToken:
     relative_start: float = 0.0  # (start - parent_onset) / parent_duration
     relative_end: float = 0.0
     boundary_type: str = "internal"  # onset_body | internal | offset_body
+    positional_role: str = ""  # onset | body | offset | only (derived from position in parent)
     # discrete stream
     vq_token: int = -1
     fingerprint_cluster: int | None = None
@@ -60,6 +61,7 @@ class DualStreamSubToken:
             "relative_start": round(self.relative_start, 4),
             "relative_end": round(self.relative_end, 4),
             "boundary_type": self.boundary_type,
+            "positional_role": self.positional_role,
             "fingerprint_cluster": self.fingerprint_cluster,
         }
 
@@ -170,10 +172,19 @@ def build_vocalisation(
         except Exception:  # noqa: BLE001
             pass
     # sub-call children
-    for seg in call.internal_segments:
+    n_subs = len(call.internal_segments)
+    for si, seg in enumerate(call.internal_segments):
         si_sample = int(seg.start_s * sr)
         sj_sample = max(int(seg.end_s * sr), si_sample + int(0.012 * sr))
         sseg = audio[si_sample:sj_sample]
+        if n_subs <= 1:
+            role = "only"
+        elif si == 0:
+            role = "onset"
+        elif si == n_subs - 1:
+            role = "offset"
+        else:
+            role = "body"
         sub = DualStreamSubToken(
             parent_vocalisation_id=voc.vocalisation_id,
             start_s=seg.start_s,
@@ -181,6 +192,7 @@ def build_vocalisation(
             relative_start=_relative(seg.start_s, call.onset_s, dur),
             relative_end=_relative(seg.end_s, call.onset_s, dur),
             boundary_type=seg.boundary_type or "internal",
+            positional_role=role,
         )
         if len(sseg) >= int(0.012 * sr):
             sfp = np.asarray(fingerprint_fn(sseg, sr), dtype=np.float32)
