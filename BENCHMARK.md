@@ -108,10 +108,12 @@ random split with all 10 callers is the meaningful result.)*
 | InfantMarmosetsVox (oracle) | call-type | mixed | macro-F1 (+0.079); whole edges V |
 | InfantMarmosetsVox (oracle) | **caller ID** | ✅✅ | **all 4 metrics** |
 
-**Conclusion:** whole/sub-call pooling adds value in every corpus × label combination where
-it was tested — cleanly on caller ID (all 4 metrics) and on end-to-end call-type, modestly
-on oracle call-type (macro-F1). Sub-call features **augment, not replace**, whole-event
-representations.
+**Refined conclusion (post-controls):** Sub-call structure augments whole-call
+representations **when boundaries are meaningful (typed HECB > raw NBD) and the target
+label is acoustically grounded**. The advantage shows up consistently on **supervised**
+metrics (probe, macro-F1) but **not uniformly on unsupervised V/NMI** — pooling adds
+dimensionality that helps a supervised classifier but can confuse kmeans. Whole-call
+remains the clean primary representation. Sub-call features **augment, not replace**.
 
 ---
 
@@ -123,13 +125,13 @@ representations.
 | continuous speech-like | NBD+CPC calibrator | optional | LibriSpeech (0.836 combined) |
 | exploratory / unknown | NBD + ABSTAIN | none | new species (conservative) |
 
-**Core claim (manuscript-ready):** The deployable animal-call path is CPC-free: PCEN+CRNN
-detects calls in noise (F1 0.70–0.88 across meerkat + marmoset), and HECB adds typed
-internal sub-call structure that, when pooled with the whole call, improves call-type
-**and** caller-ID recovery. CPC remains valuable for human multi-resolution validation
-(combined-F1 0.836, recovering phoneme-aligned boundaries). HECB is a hierarchical
-internal-boundary annotator — not a universal event detector — and the router selects the
-right front-end per acoustic regime.
+**Updated core claim (project thesis):** The pipeline uses a regime-specific segmentation
+router: PCEN+CRNN for discrete animal calls in noise, NBD+CPC for speech-like
+multi-resolution boundary validation, and HECB as a hierarchical internal-boundary annotator
+conditioned on reliable parent events. Whole-call dual-stream vocalisation tokens remain the
+primary representation; typed sub-call structure and relative internal sequence provide
+supervised and caller-associated augmentation, while semantic/context labels require
+behavioral and social covariates beyond acoustics.
 
 ---
 
