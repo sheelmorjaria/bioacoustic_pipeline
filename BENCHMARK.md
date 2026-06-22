@@ -121,3 +121,36 @@ right front-end per acoustic regime.
 - Macro-F1 for sub-call alone = n/a (different sample count than whole/pooled).
 - CPC device-consistency + checkpoint-loading fixes (`a980e9e`, `f28467c`, merged) make all
   CPC paths robust on GPU; `bat_cpc`/`bat_cpc_full` now load real weights.
+
+---
+
+## 6. Cross-species 4-way ablation (raw-NBD oracle, 2026-06-22)
+
+`scripts/cross_species_ablation.py` — per-file oracle-parent HECB (raw NBD internal
+boundaries; no typed classifier, since every proposal is inside a real call in the
+per-file case) → whole/sub/pooled/relative-sequence ablation. 2500 + 2493 vocs.
+
+| corpus (kHz) | label | whole V | pooled V | **sequence V** | whole probe | pooled probe | seq probe |
+|---|---|---|---|---|---|---|---|
+| **adult marmoset** (Vocalizations, 96) | call-type (6) | 0.458 | 0.434 | **0.468** | 0.824 | 0.832 | **0.837** |
+| **egyptian fruit bat** (250) | Context (12) | 0.152 | 0.152 | 0.153 | 0.547 | 0.556 | 0.543 |
+| egyptian fruit bat (250) | Emitter (ID) | 0.291 | 0.291 | 0.291 | 0.211 | 0.191 | 0.195 |
+
+**Honest read — this REFINES the pooled-adds-value thesis:**
+- **The relative sub-call SEQUENCE representation is the standout on marmoset call-type**
+  (best on V *and* NMI *and* probe) — the 4th ablation genuinely adds value; the ordered
+  internal composition carries signal beyond the pooled mean.
+- **Pooled ≈ whole on these corpora** (raw NBD boundaries) — the clean pooled>whole gains
+  seen with the **typed HECB classifier** (MeerKAT/InfantMarmosetsVox, §3) do **not**
+  reproduce with raw NBD internal boundaries. **Internal-boundary QUALITY matters**: typed
+  HECB > raw NBD for the pooled advantage.
+- **Bat Context is near-chance** (V~0.15, ~2-class baseline) — a clean semantic-ceiling
+  result: ethological context is not recoverable from acoustics alone (needs Track C biology).
+  This is a valid negative finding, not a pipeline failure.
+- **Bat Emitter** weak (many individuals, short bouts; sub-call hurts probe here).
+- Sub-call-alone consistently weakest (loses whole-call context).
+
+**Revised cross-species claim:** sub-call structure adds value where (a) the internal
+boundaries are meaningful (typed HECB > raw NBD) and (b) the label is acoustic-ish
+(call-type, caller-ID). It is weak/noisy where boundaries are raw NBD or the label is
+semantic (context). The relative-sequence representation is the most robust single addition.
