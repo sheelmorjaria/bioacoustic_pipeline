@@ -196,3 +196,35 @@ positive (−0.019 at 2491 vocs; the +0.010 smoke at N=100 was a small-N artifac
 **supervised metrics** (probe, macro-F1) but NOT on unsupervised V/NMI. Pooling adds
 dimensionality that helps a supervised classifier but confuses kmeans. Whole-call remains
 the clean primary representation; sub-call is a supervised augmentation layer.
+
+---
+
+## 8. Caller-ID confound controls (InfantMarmosetsVox, 2026-06-22)
+
+`scripts/caller_id_controls.py` — validates the novel caller-ID finding against confounds.
+2828 vocs, 10 callers, random 50/50 split (all callers in both halves).
+
+### Baseline + within-call-type (V / NMI / probe)
+
+| condition | whole V | pooled V | pooled−whole V | whole probe | pooled probe |
+|---|---|---|---|---|---|
+| **all call types** | 0.185 | **0.203** | +0.018 | 0.452 | **0.479** |
+| within Phee (10 callers) | 0.223 | **0.234** | +0.011 | **0.529** | 0.465 |
+| within Twitter (10 callers) | 0.251 | **0.261** | +0.010 | 0.594 | **0.601** |
+
+### Trivial baselines (probe accuracy)
+
+| baseline | probe acc | macro-F1 | interpretation |
+|---|---|---|---|
+| duration-only | 0.165 | 0.070 | near-chance (0.10) — **NOT duration** |
+| calltype-onehot | 0.138 | 0.059 | near-chance — **NOT call-type confound** |
+| whole-fp (dur-regressed) | 0.435 | 0.393 | survives duration removal |
+
+**Verdict:** the caller-ID finding is **genuine** — it survives all confound controls.
+The pooled V/NMI advantage is consistent across full + within-call-type; the probe
+advantage is call-type-dependent (Twitter: pooled wins; Phee: whole wins on probe).
+Within-call-type V is well above chance (0.22–0.25 for 10 callers), confirming the caller
+signal is in the acoustics, not call-type confounding. The cautious claim: *HECB-derived
+sub-call structure carries caller-associated acoustic information; the pooled advantage
+survives call-type and duration confound controls, and is consistent on unsupervised
+association metrics across conditions.*
