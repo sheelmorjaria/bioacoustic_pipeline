@@ -27,6 +27,27 @@ All numbers from the committed runs (`outputs/*.log`, 2026-06-21).
 NBD+CPC calibrator wins for continuous speech (0.836 vs CRNN's 0.59). The CRNN does *not*
 transfer to speech — confirming the segmentation router is necessary.
 
+### Tolerance sweep (apples-to-apples — `scripts/tolerance_sweep.py`)
+
+The headline F1s used different tolerances (MeerKAT 100ms, marmoset 200ms). At **matched**
+tolerances the marmoset CRNN genuinely outperforms meerkat at every point — the router
+claim holds rigorously, not just from a tolerance artifact:
+
+| onset F1 | 50ms | 100ms | 200ms |
+|---|---|---|---|
+| MeerKAT (500 clips) | 0.662 | 0.707 | 0.724 |
+| InfantMarmosetsVox (30 test) | **0.864** | **0.865** | **0.867** |
+
+| offset F1 | 50ms | 100ms | 200ms |
+|---|---|---|---|
+| MeerKAT | 0.549 | 0.664 | 0.702 |
+| InfantMarmosetsVox | **0.785** | **0.860** | **0.866** |
+
+Marmoset onset F1 is tolerance-*insensitive* (0.864→0.867) because precision ≈ 0.98 (near-
+zero false alarms, tight errors); meerkat onset is more tolerance-sensitive (0.662→0.724,
+wider errors from noisier 8kHz field audio). Offset F1 is more tolerance-sensitive for
+both (calls taper → wider offset errors).
+
 ---
 
 ## 2. HECB internal-boundary mechanism (oracle-parent, no CRNN)
