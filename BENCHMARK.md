@@ -175,3 +175,24 @@ per-file case) → whole/sub/pooled/relative-sequence ablation. 2500 + 2493 vocs
 boundaries are meaningful (typed HECB > raw NBD) and (b) the label is acoustic-ish
 (call-type, caller-ID). It is weak/noisy where boundaries are raw NBD or the label is
 semantic (context). The relative-sequence representation is the most robust single addition.
+
+---
+
+## 7. Typed HECB vs raw NBD on adult marmoset (boundary-quality test, 2026-06-22)
+
+`scripts/typed_hecb_vs_raw.py` — same eval files (2491 calls, 6 types), two internal-
+boundary methods. Tests whether typed HECB gating recovers the pooled advantage raw NBD lacked.
+
+| method | whole V | pooled V | pooled−whole | pooled probe | sub-call V | sub-call probe |
+|---|---|---|---|---|---|---|
+| raw NBD | 0.450 | 0.418 | −0.032 | 0.800 | 0.173 | 0.487 |
+| **typed HECB** | 0.450 | **0.431** | **−0.019** | **0.814** | **0.255** | **0.527** |
+
+**Honest result:** typed HECB improves sub-call fragment quality (V 0.255 vs 0.173, probe
+0.527 vs 0.487) and pooled probe (+0.021 over whole), but does NOT flip pooled−whole on V
+positive (−0.019 at 2491 vocs; the +0.010 smoke at N=100 was a small-N artifact).
+
+**Cross-experiment pattern (now consistent):** the sub-call advantage appears on
+**supervised metrics** (probe, macro-F1) but NOT on unsupervised V/NMI. Pooling adds
+dimensionality that helps a supervised classifier but confuses kmeans. Whole-call remains
+the clean primary representation; sub-call is a supervised augmentation layer.
