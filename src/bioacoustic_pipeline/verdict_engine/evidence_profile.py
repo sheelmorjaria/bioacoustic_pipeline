@@ -129,11 +129,15 @@ def _distance_confidence(value: float, boundaries: tuple[float, ...], scale: flo
     return min(1.0, 0.5 + (d / scale) * 0.5)
 
 
-def _not_evaluable_axis(name: str, reason_detail: str, reason_code: str | None = None) -> AxisResult:
+def _not_evaluable_axis(
+    name: str, reason_detail: str, reason_code: str | None = None
+) -> AxisResult:
     """An abstaining axis: the diagnostic could not be run, NOT a biological null."""
     code = f" [{reason_code}]" if reason_code else ""
     return AxisResult(
-        name, NOT_EVALUABLE, 0.0,
+        name,
+        NOT_EVALUABLE,
+        0.0,
         f"NOT EVALUABLE{code}: {reason_detail or 'sequence input too sparse to test'}",
     )
 
@@ -149,7 +153,9 @@ def _not_applicable_axis(name: str, reason_detail: str) -> AxisResult:
     not animal communication)". Never a biological null or a claim.
     """
     return AxisResult(
-        name, NOT_APPLICABLE, 0.0,
+        name,
+        NOT_APPLICABLE,
+        0.0,
         f"NOT APPLICABLE: {reason_detail}",
     )
 
@@ -162,16 +168,20 @@ def score_sequence_recombination(lz_normalized: float) -> AxisResult:
     else:
         level = "high"
     return AxisResult(
-        "sequence_recombination", level,
+        "sequence_recombination",
+        level,
         _distance_confidence(lz_normalized, (0.30, 0.60)),
         f"LZ complexity {lz_normalized:.3f} (thresholds 0.30/0.60)",
     )
 
 
-def score_functional_aliasing(alias_density: float, alias_pvalue: float | None = None) -> AxisResult:
+def score_functional_aliasing(
+    alias_density: float, alias_pvalue: float | None = None
+) -> AxisResult:
     if alias_pvalue is not None and alias_pvalue >= 0.05:
         return AxisResult(
-            "functional_aliasing", "absent",
+            "functional_aliasing",
+            "absent",
             min(1.0, 0.5 + (alias_pvalue - 0.05) * 2),
             f"alias density {alias_density:.1%} NOT significant "
             f"(p={alias_pvalue:.3f} >= 0.05) — consistent with chance",
@@ -182,7 +192,9 @@ def score_functional_aliasing(alias_density: float, alias_pvalue: float | None =
     else:
         conf, note = min(1.0, 1.0 - alias_pvalue), f" (p={alias_pvalue:.3f})"
     return AxisResult(
-        "functional_aliasing", level, conf,
+        "functional_aliasing",
+        level,
+        conf,
         f"alias density {alias_density:.1%} -> {level}{note}",
     )
 
@@ -192,7 +204,8 @@ def score_call_unitization(n_hard: int, n_soft: int, n_total_boundaries: int) ->
     frac_soft = n_soft / total
     level = "holistic" if frac_soft < 0.25 else ("segmented" if frac_soft > 0.60 else "mixed")
     return AxisResult(
-        "call_unitization", level,
+        "call_unitization",
+        level,
         _distance_confidence(frac_soft, (0.25, 0.60), scale=0.18),
         f"{n_hard} hard / {n_soft} soft boundaries (frac_soft={frac_soft:.2f})",
     )
@@ -206,7 +219,9 @@ def score_context_binding(n_context_bound: int) -> AxisResult:
     else:
         level, conf = "strong", 0.8
     return AxisResult(
-        "context_binding", level, conf,
+        "context_binding",
+        level,
+        conf,
         f"{n_context_bound} context-bound sequence patterns",
     )
 
@@ -214,7 +229,9 @@ def score_context_binding(n_context_bound: int) -> AxisResult:
 def score_turn_structure(n_turn_bigrams: int, entrained: bool | None = None) -> AxisResult:
     if n_turn_bigrams == 0:
         return AxisResult(
-            "turn_structure", "absent", 0.7,
+            "turn_structure",
+            "absent",
+            0.7,
             "no cross-emitter turn bigrams (single-emitter or corpus N/A)",
         )
     if entrained is True:
@@ -224,14 +241,17 @@ def score_turn_structure(n_turn_bigrams: int, entrained: bool | None = None) -> 
     else:
         level, conf = "rhythmic", 0.5
     return AxisResult(
-        "turn_structure", level, conf,
+        "turn_structure",
+        level,
+        conf,
         f"{n_turn_bigrams} turn bigrams (entrainment="
         f"{'yes' if entrained else 'no' if entrained is False else 'unknown'})",
     )
 
 
-def score_acoustic_coherence(token_coherence: float | None = None,
-                             alias_divergence: float | None = None) -> AxisResult:
+def score_acoustic_coherence(
+    token_coherence: float | None = None, alias_divergence: float | None = None
+) -> AxisResult:
     """Acoustic coherence — do learned tokens map to coherent acoustic classes?
 
     An ACOUSTIC AUDIT, not a semantic claim: high within-token fingerprint
@@ -240,19 +260,24 @@ def score_acoustic_coherence(token_coherence: float | None = None,
     """
     if token_coherence is None:
         return AxisResult(
-            "acoustic_coherence", "absent", 0.9,
+            "acoustic_coherence",
+            "absent",
+            0.9,
             "no acoustic-fingerprint signal (enable run_pipeline(fingerprint=True))",
         )
     level = "weak" if token_coherence < 0.5 else "strong"
     div_note = f", alias divergence {alias_divergence:.2f}" if alias_divergence is not None else ""
     return AxisResult(
-        "acoustic_coherence", level,
+        "acoustic_coherence",
+        level,
         _distance_confidence(token_coherence, (0.5,), scale=0.15),
         f"token-fingerprint coherence {token_coherence:.2f}{div_note}",
     )
 
 
-def score_motif_structure(n_motifs: int | None = None, motif_null_p: float | None = None) -> AxisResult:
+def score_motif_structure(
+    n_motifs: int | None = None, motif_null_p: float | None = None
+) -> AxisResult:
     """Motif structure — do recurrent sequence patterns exceed chance?
 
     An ACOUSTIC AUDIT of sequence regularity: motifs are recurring token/alias/acoustic
@@ -261,7 +286,9 @@ def score_motif_structure(n_motifs: int | None = None, motif_null_p: float | Non
     """
     if n_motifs is None or n_motifs == 0:
         return AxisResult(
-            "motif_structure", "absent", 0.9,
+            "motif_structure",
+            "absent",
+            0.9,
             "no motif mining performed (sequences too short or tokenizer unavailable)",
         )
     level = "weak" if n_motifs < 5 else "strong"
@@ -270,7 +297,9 @@ def score_motif_structure(n_motifs: int | None = None, motif_null_p: float | Non
     if motif_null_p is not None and motif_null_p < 0.05:
         conf = min(1.0, conf + 0.15)
     return AxisResult(
-        "motif_structure", level, conf,
+        "motif_structure",
+        level,
+        conf,
         f"{n_motifs} significant motifs{p_note}",
     )
 
@@ -280,7 +309,9 @@ def score_semantic_validation(status: str = "none") -> AxisResult:
     if status not in {"none", "behavioral", "playback-supported"}:
         status = "none"
     return AxisResult(
-        "semantic_validation", status, 1.0,
+        "semantic_validation",
+        status,
+        1.0,
         "semantics require Track C (playback/receiver-response) biology; "
         "not inferable from acoustic tokens",
     )
@@ -322,7 +353,9 @@ def compute_evidence_profile(
     if sufficiency is not None and not sufficiency.evaluable:
         for ax_name in ("sequence_recombination", "functional_aliasing", "motif_structure"):
             p.axes[ax_name] = _not_evaluable_axis(
-                ax_name, sufficiency.reason_detail, sufficiency.reason)
+                ax_name, sufficiency.reason_detail, sufficiency.reason
+            )
+            p.record_abstention(ax_name, AbstentionReason.TOO_FEW_CALLS)
     else:
         p.axes["sequence_recombination"] = score_sequence_recombination(lz_normalized)
         p.axes["functional_aliasing"] = score_functional_aliasing(alias_density, alias_pvalue)
@@ -332,23 +365,34 @@ def compute_evidence_profile(
         p.axes["context_binding"] = score_context_binding(n_context_bound)
     else:
         p.axes["context_binding"] = _not_evaluable_axis(
-            "context_binding", context_reason or "no annotation labels available", "no_annotation_labels")
+            "context_binding",
+            context_reason or "no annotation labels available",
+            "no_annotation_labels",
+        )
+        p.record_abstention("context_binding", AbstentionReason.CONTEXT_LABELS_INSUFFICIENT)
     if turn_evaluable:
         p.axes["turn_structure"] = score_turn_structure(n_turn_bigrams, entrained)
     else:
         p.axes["turn_structure"] = _not_evaluable_axis(
-            "turn_structure", turn_reason or "no multi-emitter turn data", "no_turn_data")
-    p.axes["acoustic_coherence"] = score_acoustic_coherence(token_coherence, alias_acoustic_divergence)
+            "turn_structure", turn_reason or "no multi-emitter turn data", "no_turn_data"
+        )
+        p.record_abstention("turn_structure", AbstentionReason.TOO_FEW_CALLS)
+    p.axes["acoustic_coherence"] = score_acoustic_coherence(
+        token_coherence, alias_acoustic_divergence
+    )
     p.axes["semantic_validation"] = score_semantic_validation(semantic_status)
 
     # Domain gate: if the corpus is rejected for bioacoustic-communication inference
     # (e.g. ESC-50 environmental sound), REFUSE the ethological-interpretation axes —
     # not_applicable, not a biological null. Acoustic/structural axes stay scored.
     if domain_gate is not None and getattr(domain_gate, "rejected", False):
-        reason = getattr(domain_gate, "reason_detail", "domain gate rejected communication inference")
+        reason = getattr(
+            domain_gate, "reason_detail", "domain gate rejected communication inference"
+        )
         for ax in getattr(domain_gate, "disabled_axes", ()):
             if ax in p.axes:
                 p.axes[ax] = _not_applicable_axis(ax, reason)
+                p.record_abstention(ax, AbstentionReason.DOMAIN_REJECTED)
         p.domain = {
             "dataset": getattr(domain_gate, "dataset", ""),
             "dataset_role": getattr(domain_gate, "dataset_role", ""),
