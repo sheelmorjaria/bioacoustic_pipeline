@@ -254,11 +254,20 @@ def whole_sub_pooled_sequence_ablation(
     labels: list,
     *,
     k: int = 12,
+    cluster_fn: Callable[[np.ndarray, int], np.ndarray] | None = None,
 ) -> dict:
     """4-way ablation: whole / sub-call / pooled / whole+relative-sequence → label recovery.
 
     The 'sequence' representation (whole ‖ sub-call cluster histogram ‖ [n_sub, gap]) tests
     whether the ORDERED internal composition carries signal beyond the pooled mean.
+
+    Args:
+        cluster_fn: optional ``(vecs, k) -> token ids``. Defaults to spherical k-means
+            (fitted with z-scoring). Pass ``cosine_hac_tokens`` / ``gmm_tokens`` from
+            ``motif_miner.subsequence_motifs`` to test whether a non-spherical clusterer
+            recovers higher V/NMI on pooled/whole representations (k-means spherical bias
+            otherwise confuses pooled representations). When supplied, it REPLACES the
+            k-means tokenizer for the V/NMI association test; the linear probe is unchanged.
     """
     from bioacoustic_pipeline.diagnostics.context_binding import association_test  # noqa: PLC0415
     from bioacoustic_pipeline.diagnostics.probes import linear_probe  # noqa: PLC0415
@@ -292,8 +301,11 @@ def whole_sub_pooled_sequence_ablation(
     def _rec(vecs, lbls=labels_arr):
         if vecs.shape[0] < 2 or vecs.shape[1] == 0:
             return {"V": 0.0, "nmi": 0.0, "p": None, "probe": None}
-        scaler, cents = _kmeans_codebook(vecs, k)
-        toks = _tokenize(vecs, scaler, cents)
+        if cluster_fn is not None:
+            toks = cluster_fn(vecs, k)
+        else:
+            scaler, cents = _kmeans_codebook(vecs, k)
+            toks = _tokenize(vecs, scaler, cents)
         b = association_test(
             [[int(t)] for t in toks],
             np.asarray(lbls).tolist(),

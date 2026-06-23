@@ -35,6 +35,8 @@ Diagnostics:
   ├── Context binding (token↔label MI/χ²/Cramér's V, within-speaker null, BH-FDR)
   ├── Functional aliasing (+ speaker/context/frequency-controlled nulls)
   ├── Motif Miner (token · alias-collapsed · acoustic · turn · affective)
+  ├── DUSTED Subsequence Motifs (DTW-with-indels · fixed-length cosine · exact n-grams
+  │   + order-shuffle null + bootstrap + family-entropy/top-family diagnostics)
   ├── Sequence recombination (LZ76) · Call unitization · Semantic ceiling
   └── Null models + bootstrap stability
   │
@@ -119,7 +121,9 @@ src/bioacoustic_pipeline/
                     negative_control_report (ESC-50 + OOD),
                     probes (linear probe, semantic ceiling, forced alignment),
                     acoustic_fingerprint/ (physics · macro · micro · coherence · nulls · tokenizer),
-                    motif_miner/ (token · alias · acoustic · turn · affective · nulls),
+                    motif_miner/ (token · alias · acoustic · turn · affective · nulls
+                                 + subsequence_motifs: DUSTED DTW · fixed-cosine · exact-ngram
+                                 + family-entropy/top-family/label-purity diagnostics),
                     dual_stream_diagnostics (affect-within-token variance, token↔affect MI,
                     alias-affect equivalence, motif affect signatures)
   experiments/
@@ -137,9 +141,10 @@ src/bioacoustic_pipeline/
 configs/            species_profiles.yaml, model_metadata.json (firewall),
                     pipeline_deterministic.yaml, esc50_negative_control.yaml,
                     segment_representation.yaml
-tests/              171 tests (schema TDD + per-module + pipeline integration +
-                    determinism + domain gate + playback design + segment representation)
-scripts/            17 analysis + training + reproducibility + playback scripts (see Commands)
+tests/              222 tests (schema TDD + per-module + pipeline integration +
+                    determinism + domain gate + playback design + segment representation +
+                    DUSTED subsequence motifs)
+scripts/            27 analysis + training + reproducibility + playback + motif scripts (see Commands)
 ```
 
 ## Install (editable)
@@ -211,10 +216,46 @@ python scripts/train_bat_vqvae.py --audio-dir /data/bat --n-files 500
 python scripts/train_beta_vae.py
 ```
 
+### Cross-corpus DUSTED recurrent acoustic-term discovery
+```bash
+# Marmoset (HECB sub-call units, oracle)
+python scripts/hecb_dusted_marmoset.py --n-eval 1500
+
+# Bengalese finch (GT syllable-validated positive control)
+python scripts/dusted_bengalese.py --birds 0 1 2
+
+# Egyptian fruit bat (bout-level, emitter vs context)
+python scripts/dusted_bat.py --n-bouts 2000
+
+# Bat held-out emitter validation (70/30 split)
+python scripts/bat_heldout.py --n-bouts 2000
+
+# RookID individual-ID (whole-call vs HECB, cross-session held-out)
+python scripts/rookid_individual_id.py --max-calls 3000
+
+# RookID-DUSTED motif discovery
+python scripts/rookid_dusted.py --max-calls 2000
+```
+
+### Unsupervised word-structure benchmark (LibriSpeech)
+```bash
+# §14: HECB vs HuBERT vs CPC vs fingerprint same-word consistency
+python scripts/unsupervised_word_structure_benchmark.py --n-files 200
+
+# Stage C: DUSTED word-term discovery (DTW, HuBERT's native metric)
+python scripts/dusted_librispeech_words.py --n-files 200
+
+# Stage D: ES-KMeans-style word-embedding clustering
+python scripts/eskmeans_librispeech.py --n-files 200
+
+# §16: HuBERT sanity ablation (layer × k × collapse × pooling grid)
+python scripts/hubert_ablation.py --n-files 200
+```
+
 ### Lint + test
 ```bash
 ruff check . && ruff format --check .
-pytest -q                           # 171 tests
+pytest -q                           # 222 tests
 ```
 
 ## Validated results
@@ -287,6 +328,48 @@ reproducibility.
 The pipeline detects acoustic structure (segments, fingerprints, tokens) but the
 domain gate **refuses** ethological-communication inference — the strong negative control.
 
+### Cross-corpus DUSTED recurrent acoustic-term discovery (§11–§13, §18–§19)
+
+| corpus | regime | inventory | key finding |
+|---|---|---|---|
+| **Bengalese finch** (§12) | discrete syllable song | diverse, high-purity | fixed-cosine wmean purity **0.895**; DTW recovers `[4,5]` at purity **1.00** |
+| **Egyptian fruit bat** (§13) | graded bout vocalisations | graded/intermediate | Emitter V **~0.46** ≫ Context V **~0.16** (2.8×); fixed-cosine headline |
+| **InfantMarmosetsVox** (§11) | discrete calls (oracle HECB) | sparse, one dominant | DTW calltype V **0.51** = 4.7× exact; degenerate inventory |
+| **RookID** (§19) | noisy outdoor corvid calls | degenerate (one dominant) | Event V **0.22** > Source V **0.08**; motifs are call-type, not individual |
+
+**The difference is the corpus/repertoire, not the method** — DUSTED lands where predicted
+by vocalization structure. Terms = recurrent acoustic structure, NOT words.
+
+### Bat held-out emitter validation (§17)
+
+| metric | Train (70%) | Held-out (30%) |
+|---|---|---|
+| Emitter V | 0.221 | **0.375** |
+| Context V | 0.085 | 0.149 |
+| **ratio** | 2.60× | **2.52×** |
+
+The emitter/caller claim **survives held-out** — not a session/file artifact.
+
+### RookID individual-ID (§18)
+
+| representation | Source V | macro-F1 | held-out control |
+|---|---|---|---|
+| **whole-call fp (44-D)** | **0.384** | **0.287** (4× chance) | recording-date held-out |
+| HECB-pooled fp (44-D) | 0.321 | 0.263 | (sub-call does NOT improve ID) |
+
+### LibriSpeech unsupervised word-structure benchmark (§14–§16)
+
+| unit source | within/across ratio | NN acc | word-cluster V |
+|---|---|---|---|
+| **fingerprint (44-D)** | **0.964** | **0.147** | **0.517** |
+| CPC-km(50) | 0.954 | 0.191 | 0.436 |
+| HECB | 0.976 | 0.089 | 0.392 |
+| HuBERT-km(50) | 1.008 (fails) | 0.052 | 0.338 (fails) |
+
+**HuBERT is metric-dependent**: fails Levenshtein/clustering but recovers under DTW
+(Stage C: word_V 0.418). 24-config ablation (§16) confirms: no HuBERT config beats
+fingerprint. The interpretable fingerprint + in-house CPC lead on every test.
+
 ## Modules
 
 ### Sequence-Sufficiency Gate (`diagnostics/sequence_sufficiency.py`)
@@ -337,6 +420,19 @@ and within-Context shuffles. An alias result is accepted only if it survives eve
 null — preventing "different speakers produce different variants" from being misread
 as "different tokens fill the same role".
 
+### DUSTED Recurrent Subsequence Motifs (`motif_miner/subsequence_motifs.py`)
+Adapts spoken-term-discovery (DUSTED) to **recurrent acoustic terms** in animal
+vocalisations — NOT words. Each vocalisation = one `CallUnits` (ordered internal
+sub-call units). Windows (L=2–6) are matched by three primitives: exact n-grams
+(fragments), fixed-length cosine (catches substitutions), DTW with indels (catches
+indels — the main method). Role-aware length-normalised DTW with centroid-cosine
+prefilter so full all-pairs DTW is never run. Per-motif diagnostics: `label_purity`
+(GT validation), `family_entropy` / `top_family_support_fraction` (diverse vs degenerate
+discriminator), `calltype_enrichment` / `caller_enrichment` (Cramér's V, association
+NOT semantics), order-shuffle null, bootstrap Jaccard. 10 unit tests. Runs across
+4 animal corpora (marmoset/bat/Bengalese finch/rook) + LibriSpeech as a cross-species
+motif arc (§11–§19).
+
 ### Playback Design — Phase 1 (`experiments/playback_design/`)
 Turns diagnostic outputs into **falsifiable playback-experiment stimuli + manifest**.
 Exemplar concatenation (real segment audio, no neural synthesis): motif variants
@@ -373,6 +469,19 @@ decisions.*
   p=0.007). Functional aliasing is representation-dependent (negative result).
   Species tokenizers operational (bat VQ-VAE 70% codebook; marmoset_cpc collapsed —
   fingerprint/AVES used instead).
+- **Cross-corpus DUSTED motif arc** (§11–§19): recurrent acoustic-term discovery
+  validated across 4 animal corpora + LibriSpeech. Bengalese = diverse/GT-validated
+  (purity 0.895); bat = graded/emitter-signatured (V ~0.46); marmoset = sparse/one
+  dominant; rook = degenerate/Event-associated. The difference is the corpus, not the
+  method. Bat emitter claim survives held-out (§17: V 0.375, 2.52× context).
+- **Individual identity** (§18): compact 44-D fingerprints consistently preserve
+  individual identity across species — bat (V ~0.46), rook (V 0.384, 4× chance
+  cross-session). Sub-call structure does NOT improve individual-ID accuracy —
+  HECB's value is structural annotation, not ID.
+- **Word-structure benchmark** (§14–§16): interpretable fingerprint + in-house CPC
+  lead on all 4 tests (consistency, DTW term discovery, clustering, HuBERT ablation).
+  HuBERT is metric-dependent (fails Levenshtein/clustering, recovers under DTW).
+  Conclusion locked across 24 HuBERT configs.
 - **Track C** (biological function): the falsification reports are the experimental
   to-do list for wet-lab / field playback validation. Phase-1 playback design
   generates the stimulus variants + manifest.

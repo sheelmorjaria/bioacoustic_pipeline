@@ -146,10 +146,25 @@ def _kmeans_tokens(vecs: np.ndarray, k: int, seed: int = 0) -> np.ndarray:
 
 
 def _recovery(
-    vecs: np.ndarray, labels: np.ndarray, k: int, n_perm: int, min_per_class: int
+    vecs: np.ndarray,
+    labels: np.ndarray,
+    k: int,
+    n_perm: int,
+    min_per_class: int,
+    *,
+    cluster_fn: Callable[[np.ndarray, int], np.ndarray] | None = None,
 ) -> dict:
-    """k-means tokens → token↔label V/nmi/p + linear probe accuracy."""
-    toks = _kmeans_tokens(vecs, k)
+    """Tokenize → token↔label V/nmi/p + linear probe accuracy.
+
+    Args:
+        cluster_fn: optional clustering function ``(vecs, k) -> token ids``. Defaults to
+            ``_kmeans_tokens`` (spherical k-means). Pass ``cosine_hac_tokens`` /
+            ``gmm_tokens`` from ``motif_miner.subsequence_motifs`` for fairer V/NMI on
+            cosine/elliptical fingerprint spaces (k-means spherical bias otherwise
+            confuses pooled representations).
+    """
+    fn = cluster_fn or _kmeans_tokens
+    toks = fn(vecs, k)
     binding = association_test(
         [[int(t)] for t in toks], labels.tolist(), statistic="nmi", n_permutations=n_perm, seed=0
     ).as_dict()
@@ -170,10 +185,11 @@ def whole_sub_pooled_ablation(
     n_perm: int = 500,
     min_per_class: int = 5,
     min_sub_for_subcall: int | None = None,
+    cluster_fn: Callable[[np.ndarray, int], np.ndarray] | None = None,
 ) -> dict:
     """Standard ablation: whole vs sub-call vs pooled label-recovery.
 
-    For each representation mode, k-means-tokenize → token↔label Cramer's V / NMI / p +
+    For each representation mode, tokenize → token↔label Cramer's V / NMI / p +
     linear-probe accuracy. Returns the comparison dict. The sub-call mode labels each
     sub-call with its parent call's label (tests whether sub-call acoustic classes carry
     the label signal).
@@ -181,9 +197,13 @@ def whole_sub_pooled_ablation(
     Args:
         reps: SubcallRepresentations (from ``build_subcall_representations``).
         labels: per-call labels (aligned to ``reps``).
-        k: k-means token count.
+        k: token count for the clustering step.
         min_sub_for_subcall: minimum total sub-segs to run the sub-call mode
             (default ``k * 5``).
+        cluster_fn: optional ``(vecs, k) -> token ids``. Defaults to k-means (spherical);
+            pass ``cosine_hac_tokens`` / ``gmm_tokens`` from
+            ``motif_miner.subsequence_motifs`` to test whether a non-spherical clusterer
+            recovers higher V/NMI on pooled/cosine representations.
     """
     if len(reps) != len(labels):
         raise ValueError(f"reps ({len(reps)}) and labels ({len(labels)}) must align")
@@ -192,12 +212,13 @@ def whole_sub_pooled_ablation(
     whole = np.asarray([r.whole_fingerprint for r in reps], dtype=np.float32)
     pooled = np.asarray([r.pooled_fingerprint for r in reps], dtype=np.float32)
     labels_arr = np.asarray(labels)
+    rec_kws = dict(cluster_fn=cluster_fn) if cluster_fn is not None else {}
     result = {
         "n_calls": len(reps),
         "n_with_internal": sum(1 for r in reps if r.has_internal),
         "n_subsegs": sum(r.n_internal for r in reps),
-        "whole": _recovery(whole, labels_arr, k, n_perm, min_per_class),
-        "pooled": _recovery(pooled, labels_arr, k, n_perm, min_per_class),
+        "whole": _recovery(whole, labels_arr, k, n_perm, min_per_class, **rec_kws),
+        "pooled": _recovery(pooled, labels_arr, k, n_perm, min_per_class, **rec_kws),
         "subcall": None,
     }
     all_sub = [fp for r in reps for fp in r.subcall_fingerprints]
@@ -206,7 +227,7 @@ def whole_sub_pooled_ablation(
         sub_labels = np.asarray(
             [lab for r, lab in zip(reps, labels) for _ in r.subcall_fingerprints]
         )
-        result["subcall"] = _recovery(sub_vecs, sub_labels, k, n_perm, min_per_class)
+        result["subcall"] = _recovery(sub_vecs, sub_labels, k, n_perm, min_per_class, **rec_kws)
     return result
 
 

@@ -1,8 +1,11 @@
 # Architecture: representation & segmentation stack
 
-The canonical, frozen shape (2026-06-22). A falsifiable multi-view pipeline for bioacoustic
+The canonical, frozen shape (2026-06-23). A falsifiable multi-view pipeline for bioacoustic
 structure discovery — not a classifier. Each vocalisation is one **hierarchical dual-stream
-event**, and the whole stack is organized around that unit.
+event**, and the whole stack is organized around that unit. In addition to the core
+verdict pipeline, the stack now includes a **DUSTED-style recurrent subsequence motif
+discovery** module (§8) that runs across 5 animal corpora + LibriSpeech as a cross-species
+motif-arc validation layer.
 
 See also: [`BENCHMARK.md`](BENCHMARK.md) (the numbers), [`CLAUDE.md`](CLAUDE.md) (invariants),
 [`configs/segmentation_router.yaml`](configs/segmentation_router.yaml) (the router).
@@ -124,7 +127,99 @@ from bioacoustic_pipeline.representation.vocalisation import (
     build_vocalisation, whole_sub_pooled_sequence_ablation, format_4way_table,
 )
 
+# DUSTED recurrent subsequence motif discovery (cross-species motif arc)
+from bioacoustic_pipeline.diagnostics.motif_miner.subsequence_motifs import (
+    CallUnits, discover_recurrent_subsequences, fixed_length_cosine_clusters,
+    exact_ngram_clusters, discovery_null, bootstrap_stability, summarize_discovery,
+)
+
 # Or the full pipeline
 from bioacoustic_pipeline.orchestration import run_pipeline
 report, trace = run_pipeline(paths, species="marmoset", segmentation="hecb")
 ```
+
+---
+
+## 8. DUSTED recurrent subsequence motif discovery (`motif_miner/subsequence_motifs.py`)
+
+Adapts spoken-term-discovery (DUSTED) to **recurrent acoustic terms** in animal
+vocalisations — NOT words. The transferable target is recurrent motifs / sub-call
+phrases / sequence templates / vocalisation-internal units. Speech word-discovery
+methods are adapted, with the router/HECB structure wrapped around them.
+
+### Design
+
+Each vocalisation = one `CallUnits` (ordered internal sub-call units). Windows of
+length L=2–6 are generated; similar windows are matched by one of three primitives;
+matched windows are clustered into connected-component motif families.
+
+| method | matching primitive | role |
+|---|---|---|
+| `exact_ngram_clusters` | exact cluster-ID tuple match | fragments every variant; highest precision |
+| `fixed_length_cosine_clusters` | same-length windows, mean per-position cosine | catches substitutions, misses indels |
+| `discover_recurrent_subsequences` | **DTW with indels** (role-aware, length-normalised) | catches substitutions + indels; richest families |
+
+DTW cost (biologically grounded in the onset/body/offset positional-role result):
+
+```
+substitution(i, j) = (1 − cosine(fp_i, fp_j)) + role_penalty·𝟙[role_i ≠ role_j]
+                   + relpos_lambda·|rel_mid_i − rel_mid_j|
+indel(role)        = indel_edge if role ∈ {onset, offset} else indel_body
+distance           = total_alignment_cost / max(len(a), len(b))
+```
+
+Constrained cascade (full all-pairs DTW is never run): window generation →
+centroid-cosine + length-ratio prefilter (`sklearn.NearestNeighbors`) → DTW only on
+surviving pairs → motif graph (edge = DTW dist < threshold) → connected components.
+
+### Diagnostics (per motif family + corpus summary)
+
+- **`label_purity`** — modal cluster-tuple fraction among members (GT validation when
+  clusters are ground-truth labels, e.g. Bengalese syllable IDs).
+- **`family_entropy`** / **`family_entropy_norm`** / **`top_family_support_fraction`** —
+  diverse-inventory vs one-dominant-repeat discriminator (Bengalese = diverse;
+  marmoset = one dominant; bat = graded/intermediate).
+- **`calltype_enrichment`** / **`caller_enrichment`** — Cramér's V + χ² p of
+  motif-presence vs the call's calltype / caller (association, NOT semantics).
+- **`discovery_null`** — within-call order shuffle on total support (tests whether
+  motif recurrence depends on sequence order; total support is the sensitive statistic).
+- **`bootstrap_stability`** — resample calls, re-discover top-K, mean pairwise Jaccard.
+
+### Terminology (relanguage)
+
+Speech word discovery is adapted, but the animal target is **recurrent acoustic
+structure**, NOT word recovery. "Word" is reserved for the LibriSpeech human-speech
+controlled analogue (which has word GT). See the `BENCHMARK.md` Terminology section for
+the full speech→animal translation table.
+
+---
+
+## 9. Cross-corpus motif arc (5 animal corpora + LibriSpeech)
+
+The DUSTED module runs across 5 animal corpora with identical diagnostics, producing a
+cross-species comparison of recurrent-acoustic-term structure:
+
+| corpus | regime | inventory | key finding | §ref |
+|---|---|---|---|---|
+| **Bengalese finch** | discrete syllable song | diverse, high-purity | fixed-cosine wmean purity 0.895; DTW recovers `[4,5]` at 1.00 | §12 |
+| **Egyptian fruit bat** | graded bout vocalisations | graded/intermediate | Emitter V ~0.46 ≫ Context V ~0.16 (2.8×); fixed-cosine headline | §13 |
+| **InfantMarmosetsVox** | discrete calls (oracle HECB) | sparse, one dominant | DTW calltype V 0.51 = 4.7× exact; degenerate inventory | §11 |
+| **RookID** | noisy outdoor corvid calls | degenerate (one dominant) | Event V 0.22 > Source V 0.08; motifs are call-type not individual | §18–§19 |
+| **LibriSpeech** | human speech (controlled) | diverse word structure | fingerprint leads consistency + clustering; HuBERT metric-dependent | §14–§16 |
+
+**The difference is the corpus/repertoire, not the method** — DUSTED behaves correctly in
+all regimes, landing where predicted by the vocalization structure.
+
+### Individual identity across species
+
+The 44-D acoustic fingerprint consistently preserves individual identity:
+
+| species | identity target | fingerprint V / accuracy | held-out control |
+|---|---|---|---|
+| Egyptian fruit bat | Emitter | Emitter V ~0.46 (motif families) | 70/30 held-out: V 0.375 (§17) |
+| RookID rook | Source (individual) | macro-F1 0.287 (4× chance), V 0.384 | recording-date held-out (§18) |
+| InfantMarmosetsVox | Caller | caller V present, sub-call augmentation modest | twin-pair held-out |
+
+**Sub-call structure does NOT improve individual-ID accuracy** (RookID: whole-call wins
+on all metrics). HECB's value is structural annotation (motifs, position roles), not
+individual-ID accuracy. For *who is calling*, the whole-call fingerprint is the right tool.

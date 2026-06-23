@@ -385,6 +385,7 @@ def hecb_decode(
     snap_dist_ms: float = HECB_SNAP_DIST_MS,
     min_internal_call_ms: float = 250.0,
     gate_durations: bool = False,
+    min_parent_confidence: float = 0.0,
     file_id: str = "",
 ) -> list[CallEvent]:
     """Stage 5: decode CRNN events + typed proposals into CallEvents with internal segments.
@@ -397,6 +398,11 @@ def hecb_decode(
     (spurious-event hygiene). For each event, internal-typed proposals (confidence > 0.3,
     inside the call body, respecting min-gap + max-count) become InternalSegments — but only
     for calls longer than ``min_internal_call_ms`` (short calls are atomic units).
+
+    ``min_parent_confidence``: HECB **abstain mechanism** — if a CRNN event's confidence
+    is below this threshold, HECB skips internal annotation for that event (produces a
+    CallEvent with no InternalSegments). Prevents noisy internal boundaries from polluting
+    the pooled representation when the parent event is unreliable. Default 0.0 (no abstain).
 
     Args:
         crnn_events: [(onset_ms, offset_ms, confidence), ...].
@@ -441,8 +447,8 @@ def hecb_decode(
             crnn_confidence=ev_conf,
         )
 
-        # Typed internal boundaries (only for long calls)
-        if call_dur > min_internal_call_ms:
+        # Typed internal boundaries (only for long, confident calls)
+        if call_dur > min_internal_call_ms and ev_conf >= min_parent_confidence:
             internal_props = [
                 (t, p[HECB_INTERNAL])
                 for t, p in ev_props
