@@ -7,6 +7,12 @@ from bioacoustic_pipeline.diagnostics.repertoire_taxonomy.classifier import (
     RepertoireProfile,
     RepertoireType,
     classify_repertoire,
+    route_by_continuous,
 )
 
-__all__ = ["RepertoireProfile", "RepertoireType", "classify_repertoire"]
+__all__ = [
+    "RepertoireProfile",
+    "RepertoireType",
+    "classify_repertoire",
+    "route_by_continuous",
+]

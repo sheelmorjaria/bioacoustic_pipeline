@@ -180,3 +180,35 @@ def classify_repertoire(p: RepertoireProfile) -> str:
     if p.socially_grounded:
         return RepertoireType.SOCIALLY_GROUNDED
     return RepertoireType.UNKNOWN
+
+
+# Routing hints returned by ``route_by_continuous`` (the fast token-free pre-filter).
+ROUTE_SKIP_DUSTED = "skip_dusted_use_mp"  # degenerate regime — Matrix Profile suffices
+ROUTE_RQA_THEN_DUSTED = "use_rqa_for_dynamics_then_dusted_for_motifs"  # graded regime
+ROUTE_FULL_DUSTED = "run_full_dusted"  # discrete regime — DUSTED is the right tool
+
+
+def route_by_continuous(mp_recurrence: float | None, rqa_lam: float | None) -> tuple[str, str]:
+    """Fast token-free regime pre-filter — route a corpus BEFORE running DUSTED.
+
+    Uses Matrix-Profile recurrence + RQA laminarity (both computable with NO HECB
+    segmentation or k-means tokenization) to pick the cheapest sound structural strategy,
+    per the §33 per-dataset ablation. This operationalizes the discovery-stack freeze: the
+    calibrated alternatives become the router's regime detector, and the heavy DUSTED DTW
+    is skipped on degenerate data.
+
+    Calibrated to §33:
+      marmoset (MP 0.788, LAM 0.493) → SPARSE_REPETITIVE + skip_dusted (degenerate stutter)
+      bat (MP 0.872, LAM 0.169)      → GRADED + use_rqa_for_dynamics_then_dusted_for_motifs
+      else (e.g. Bengalese)          → DISCRETE_SYLLABLE + run_full_dusted
+
+    Returns: ``(RepertoireType, routing_hint)``. Falls back to DISCRETE_SYLLABLE +
+    run_full_dusted when the continuous signals are missing or ambiguous (the safe default
+    that runs the full validated pipeline).
+    """
+    if mp_recurrence is not None and rqa_lam is not None:
+        if mp_recurrence > 0.70 and rqa_lam > 0.40:
+            return RepertoireType.SPARSE_REPETITIVE, ROUTE_SKIP_DUSTED
+        if rqa_lam < 0.20 and mp_recurrence > 0.80:
+            return RepertoireType.GRADED, ROUTE_RQA_THEN_DUSTED
+    return RepertoireType.DISCRETE_SYLLABLE, ROUTE_FULL_DUSTED

@@ -8,6 +8,7 @@ from bioacoustic_pipeline.diagnostics.repertoire_taxonomy import (
     RepertoireProfile,
     RepertoireType,
     classify_repertoire,
+    route_by_continuous,
 )
 
 
@@ -80,3 +81,24 @@ def test_description_nonempty_for_known_types():
         p = RepertoireProfile(corpus="x", **kwargs)
         assert p.repertoire_type == expected
         assert p.description
+
+
+def test_route_by_continuous_matches_validated_regimes():
+    # marmoset §33: MP 0.788, LAM 0.493 → sparse + skip DUSTED
+    t, r = route_by_continuous(0.788, 0.493)
+    assert t == RepertoireType.SPARSE_REPETITIVE
+    assert r == "skip_dusted_use_mp"
+    # bat §33: MP 0.872, LAM 0.169 → graded + rqa-then-dusted
+    t, r = route_by_continuous(0.872, 0.169)
+    assert t == RepertoireType.GRADED
+    assert r == "use_rqa_for_dynamics_then_dusted_for_motifs"
+    # discrete default (e.g. Bengalese-style moderate signals)
+    t, r = route_by_continuous(0.50, 0.25)
+    assert t == RepertoireType.DISCRETE_SYLLABLE
+    assert r == "run_full_dusted"
+
+
+def test_route_by_continuous_missing_signals_defaults_to_full_dusted():
+    t, r = route_by_continuous(None, None)
+    assert t == RepertoireType.DISCRETE_SYLLABLE
+    assert r == "run_full_dusted"
