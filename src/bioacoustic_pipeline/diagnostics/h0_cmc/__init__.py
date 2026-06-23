@@ -12,5 +12,23 @@ from bioacoustic_pipeline.diagnostics.h0_cmc.evidence_tiers import (
     H0CMCEvidence,
     classify_tier,
 )
+from bioacoustic_pipeline.diagnostics.h0_cmc.explicit_implicit_test import (
+    CommunicationMode,
+    explicit_vs_implicit_test,
+)
+from bioacoustic_pipeline.diagnostics.h0_cmc.social_axis import (
+    GenericContext,
+    SocialContext,
+    split_context,
+)
 
-__all__ = ["EvidenceTier", "H0CMCEvidence", "classify_tier"]
+__all__ = [
+    "EvidenceTier",
+    "H0CMCEvidence",
+    "classify_tier",
+    "CommunicationMode",
+    "explicit_vs_implicit_test",
+    "SocialContext",
+    "GenericContext",
+    "split_context",
+]

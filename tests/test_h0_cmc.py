@@ -70,3 +70,61 @@ def test_as_dict_roundtrip():
     assert d["tier"] == "T1"
     assert d["semantic_validation"] == "none"
     assert d["social_lift"] == 1.74
+
+
+def test_explicit_implicit_explicit_acoustic():
+    """When acoustics alone predict context well → EXPLICIT_ACOUSTIC."""
+    import numpy as np
+
+    from bioacoustic_pipeline.diagnostics.h0_cmc import (
+        CommunicationMode,
+        explicit_vs_implicit_test,
+    )
+
+    rng = np.random.RandomState(0)
+    # 3 context classes, acoustic features perfectly separated
+    n = 60
+    acoustic = np.vstack([rng.randn(20, 5) + [c] * 5 for c in range(3)])
+    labels = np.array([0] * 20 + [1] * 20 + [2] * 20)
+    social = rng.randn(n, 3)  # social features are noise
+    result = explicit_vs_implicit_test(acoustic, social, labels, cv_folds=3)
+    assert result["mode"] == CommunicationMode.EXPLICIT_ACOUSTIC
+    assert result["social_lift"] < 1.2
+
+
+def test_explicit_implicit_socially_grounded():
+    """When social features carry the signal → SOCIALLY_GROUNDED_IMPLICIT."""
+    import numpy as np
+
+    from bioacoustic_pipeline.diagnostics.h0_cmc import (
+        explicit_vs_implicit_test,
+    )
+
+    rng = np.random.RandomState(0)
+    n = 60
+    acoustic = rng.randn(n, 5)  # acoustic = noise (A low)
+    # social features encode the context
+    social = np.vstack([rng.randn(20, 3) + [c] * 3 for c in range(3)])
+    labels = np.array([0] * 20 + [1] * 20 + [2] * 20)
+    result = explicit_vs_implicit_test(acoustic, social, labels, cv_folds=3)
+    assert result["accuracy_acoustic_social"] > result["accuracy_acoustic"]
+    assert result["social_lift"] > 1.15
+
+
+def test_split_context_routes_correctly():
+    from bioacoustic_pipeline.diagnostics.h0_cmc import split_context
+
+    social, generic = split_context(
+        {
+            "emitter": "bat_1",
+            "addressee": "bat_2",
+            "behavior": "feeding",
+            "context": "outdoor",
+            "relationship": "kin",
+        }
+    )
+    assert social.emitter_id == "bat_1"
+    assert social.addressee_id == "bat_2"
+    assert social.relationship == "kin"
+    assert generic.behavioral_state == "feeding"
+    assert generic.environmental == "outdoor"
