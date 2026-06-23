@@ -1333,3 +1333,175 @@ computationally.
 
 **Counterfactual controls** (H0-CMC §4): natural / motif-preserved / order-shuffled /
 caller-swapped / context-mismatched / onset-body-offset-swapped / amplitude-duration-matched.
+
+## 30. Boundary-quality sensitivity sweep — at what parent quality does hierarchy help? (2026-06-23)
+
+**Question (Architecture v1.0 invariant #2/#3).** HECB annotates typed internal sub-call
+boundaries inside detected call events. Does that sub-call structure actually *help* the
+downstream representation (call-type recovery), and is that help conditional on the parent
+boundary quality — i.e. is there a parent-F1 threshold below which HECB should abstain
+(`min_parent_confidence`)? Run on TWO corpora with complementary structure so neither a
+firewall lock nor a sparsity false-negative dominates. Script: `scripts/boundary_quality_sweep.py`;
+artifacts `outputs/boundary_quality_sweep.{csv,json}`.
+
+**Setup.** `hecb_decode` accepts any parent events, so parent quality is a clean independent
+variable; CRNN P(call) is computed once per clip and reused across operating points. The
+hierarchy-helps signal is the **gap = pooled V − whole V** on call-type recovery (whole/pooled/
+sequence via `whole_sub_pooled_sequence_ablation`, k=12) + DUSTED motif stability on the ≥2-sub
+subset.
+
+- **MeerKAT** (the HECB corpus): brief calls in noise + trained CRNN ⇒ parent quality varies via
+  REAL detector operating points (CRNN enter_thr) and the typed HECB internal annotator is
+  available. Methods: oracle / CRNN(0.4/0.7/0.9) / raw-NBD parent × typed-HECB / raw-NBD internal.
+  (HECB typed is firewall-locked to meerkat.) 300 clips; 104–193 calls with internal structure.
+- **Marmoset** (richer ~1 s calls, 5 call types): pre-extracted single calls ⇒ parent is perfect
+  by construction, so parent quality is degraded by Gaussian onset/offset jitter (σ = 0/25/75/150 ms).
+  No HECB checkpoint ⇒ raw-NBD internal only. 2500 calls; **2496/2496 with internal structure**
+  (the rich-hierarchy corpus — where a hierarchy benefit would show if it exists anywhere).
+
+### MeerKAT — real CRNN detector operating points
+
+| method | parent F1 | whole V | pooled V | gap | whole probe |
+|---|---|---|---|---|---|
+| oracle_typed | 1.000 | 0.364 | 0.386 | **+0.021** | 0.753 |
+| oracle_raw | 1.000 | 0.364 | 0.385 | +0.021 | 0.753 |
+| crnn0.9_typed | 0.940 | 0.299 | 0.351 | +0.052 | 0.709 |
+| crnn0.7_typed | 0.934 | 0.320 | 0.341 | +0.022 | 0.645 |
+| crnn0.7_raw | 0.934 | 0.320 | 0.332 | +0.012 | 0.645 |
+| crnn0.4_typed | 0.894 | 0.278 | 0.367 | +0.089 | 0.640 |
+| raw_nbd | 0.101 | 0.286 | 0.286 | **0.000 ← abstain** | 0.583 |
+
+### Marmoset — oracle/jittered parent (rich internal structure)
+
+| method | parent MAE (ms) | whole V | pooled V | gap | whole probe |
+|---|---|---|---|---|---|
+| oracle_raw | 0.0 | 0.524 | 0.492 | **−0.032** | 0.810 |
+| jitter25_raw | 12.9 | 0.522 | 0.486 | −0.035 | 0.808 |
+| jitter75_raw | 38.8 | 0.537 | 0.483 | −0.054 | 0.804 |
+| jitter150_raw | 77.6 | 0.524 | 0.487 | −0.037 | 0.792 |
+| oracle_none (no internal) | 0.0 | 0.524 | 0.524 | 0.000 | 0.810 |
+
+### Verdict — whole-call primary (invariant #3) confirmed on both corpora
+
+**Sub-call internal structure is NOT a call-type-recovery lever.** At the best parent quality the
+hierarchy benefit is **+0.021 V on meerkat** (within noise) and **negative on marmoset** (pooled is
+*worse* than whole despite 2496/2496 calls having internal structure — rich internal adds noise, not
+signal). The meerkat gap *grows* as the parent degrades (crnn0.4 → +0.089) only because `whole`
+collapses faster than `pooled`; **absolute pooled never exceeds oracle whole** (0.364 meerkat). The
+`raw_nbd` row (parent F1 0.101 → gap 0) confirms the abstain mechanism fires correctly at the extreme.
+
+**Consequence for the HECB gate:** there is **no meaningful abstain threshold for hierarchy benefit**,
+because there is no hierarchy benefit to preserve (gap ≈ 0 meerkat, < 0 marmoset at the best parent).
+`min_parent_confidence`'s job is therefore *not* "preserve a call-type gain" — it is "keep noisy
+internal boundaries out of the pooled representation when parent events are unreliable" (the marmoset
+negative gaps are the proof of why that matters). This **validates HECB-as-annotator (invariant #2)**:
+internal annotation is for motif/structure discovery, not representation recovery. Typed ≈ raw internal
+on meerkat (consistent with the companion HECB-vs-calibrator factorial — classifier type is not the lever).
+
+**Honesty caveat.** The ablation V uses k=12 for sweep-internal consistency, so absolute whole V
+(0.364 meerkat / 0.524 marmoset) is **not** comparable to the published k=64 call-type V (meerkat
+0.521 §18 / marmoset 0.606). The pooled−whole *gap* is the k-independent signal and is what the claim
+rests on. Call-type recovery = acoustic association, not validated meaning (`semantic_validation: none`);
+both corpora are firewall-clean (all-species fingerprint + HECB/raw-NBD, no cross-species weights).
+
+## 31. Cross-species repertoire taxonomy — WHY each corpus shows the structure it does (2026-06-23)
+
+**Question (Architecture v1.0 Step 3).** The boundary sweep (§30) showed whole-call primary holds
+regardless of parent quality — but *why* do corpora differ so much in their motif structure
+(Bengalese rich, bat graded, marmoset sparse, rook atomic)? This is a SYNTHESIS classifier, not a
+new measurement: a `RepertoireProfile` of already-validated diagnostics → a `RepertoireType`. Pure
+stdlib module `diagnostics/repertoire_taxonomy/classifier.py` (8 unit tests); script
+`scripts/repertoire_taxonomy.py`; artifacts `outputs/repertoire_taxonomy.{csv,json}`.
+
+| corpus | repertoire type | secondary flags | null ratio | bootstrap | coverage | emitter V | context V | social lift |
+|---|---|---|---|---|---|---|---|---|
+| **Bengalese finch** | `discrete_syllable` | — | 2.67× | 0.509 | 0.480 | n/a | n/a | n/a |
+| **Egyptian fruit bat** | `graded` | identity_dominant, socially_grounded | 1.36× | 0.394 | 0.153 | 0.446 | 0.167 | 1.74 |
+| **Infant marmoset** | `sparse_repetitive` | — | 1.55× | 0.229 | 0.028 | n/a | 0.599 | n/a |
+| **Rook** | `individually_stereotyped` | identity_dominant | n/a | n/a | n/a | 0.31 | 0.04 | n/a |
+| **LibriSpeech (human)** | `human_lexical` | — | — | — | — | — | — | — |
+
+Numbers curated from validated sections (§22 cross-corpus DUSTED; §13/§18/§23 binding V; §9 social-lift),
+each cited in the profile's `source` — re-running 5 heterogeneous DUSTED loaders would re-derive
+numbers already in §22.
+
+**Classifier (calibrated so each reference corpus lands on its validated type):**
+1. human anchor → `human_lexical`
+2. has real motif structure (coverage ≥ 0.10): strongly recurrent + stable (null > 2.0 & bootstrap >
+   0.45) → `discrete_syllable` (Bengalese); else → `graded` (bat)
+3. no/low motif structure: identity dominates (emitter_v > 0.30 & > 1.5× context_v) →
+   `individually_stereotyped` (rook); very low coverage & unstable (cov < 0.10 & bootstrap < 0.30) →
+   `sparse_repetitive` (infant marmoset)
+
+**Two honest design notes.** (1) DUSTED family-entropy is near-max for ALL corpora (0.85–0.89) — a
+*weak* discriminator; the real separators are null_ratio / bootstrap / coverage + emitter-vs-context
+V, which is what the classifier uses. (2) A single label would lose the bat's richness, so each
+profile carries **secondary flags** (`identity_dominant`, `socially_grounded`) alongside its primary
+type — bat is graded + emitter-signatured + socially-grounded at once. Marmoset is the clearest case
+of "call-type recoverable from the whole-call fingerprint (V 0.599) yet DUSTED sequence motifs sparse
+(cov 0.028)" — whole-call form ≠ sequence structure, consistent with §30's whole-call-primary result.
+Types are corpus-property descriptors, not validated meaning (`semantic_validation: none`).
+
+## 32. Identity–form–context disentanglement — what acoustics encode / don't / need-social (2026-06-23)
+
+**Question (Architecture v1.0 Step 4).** The backbone biological table: for each corpus, what do the
+acoustics ENCODE (individual identity, call/event form), what do they NOT (context, social partner,
+valence), and what NEEDS social covariates? Script `scripts/identity_form_context_disentanglement.py`;
+artifacts `outputs/identity_form_context.{csv,json}`. A SYNTHESIS table — every number is already
+validated in BENCHMARK (§13/§18/§23/§24/§25/§29), cited per cell; verdict by an inline classifier
+(needs_social flag ⇒ needs_social; V≥0.4 or probe≥3×chance ⇒ strong; V≥0.2 ⇒ partial; else weak).
+
+| corpus | individual_id | call_type | context | social_partner |
+|---|---|---|---|---|
+| **Egyptian fruit bat** | **strong** (V 0.446) | weak (0.167) | **needs_social** (§9 D=4.3×) | n/a |
+| **Infant marmoset** | n/a (no ID labels) | **strong** (V 0.599, probe 0.829) | n/a | n/a |
+| **MeerKAT** | n/a | **strong** (V 0.521, probe 0.753) | n/a | n/a |
+| **Rook** | partial (Source V 0.31) | **strong** (sing/call 0.67) | weak (social_other 0.04 ≈ chance) | n/a (≈chance §26) |
+| **LibriSpeech (human)** | strong (speaker probe 0.56) | partial (token↔word 0.29) | n/a (read speech) | n/a |
+
+**The three-bucket thesis, operationalised:**
+- **ENCODED** (strong/partial): individual identity (bat, rook) + call/event form (marmoset, meerkat,
+  rook). Acoustics carry identity and form.
+- **NOT ENCODED** (weak/n_a): context, social partner, valence (Soundwel within-call-type ≈ chance,
+  §24). Acoustics alone do not recover these — the core negative result.
+- **NEEDS SOCIAL**: bat context — acoustics undercount function; adding social covariates lifts
+  recovery 4.3× (§9). This is where Track C biology is required.
+
+**Human anchor (the form/meaning split).** Speaker identity IS strongly encoded (CPC probe 0.56 — the
+latent is speaker-dominated, §semantic-ceiling), but word identity is NOT recovered by acoustic tokens
+(token↔word 0.29). So even in humans, the acoustic form carries identity far better than lexical
+meaning — the semantic ceiling holds. (The librispeech speaker figure is from the CPC latent, the
+firewall-legal human representation; animal cells use the all-species acoustic fingerprint.) Call-type
+and identity recovery are ACOUSTIC associations, NOT validated meaning (`semantic_validation: none`).
+
+**Steps 1–4 (the paper-ready core) are complete.**
+
+## 33. Structural alternatives ablation — DUSTED vs RQA / Matrix Profile / PST / Transition Network (2026-06-23)
+
+**Question.** Four structure-discovery techniques that do NOT rely on DUSTED's token-sequence
+alignment, run as a per-dataset head-to-head against the validated DUSTED §22 baselines. Modules in
+`diagnostics/structural_alternatives/` (ablation-stage — deliberately NOT promoted into `motif_miner`);
+script `scripts/compare_structure_methods.py`; artifacts `outputs/compare_structure_methods.json`. Each
+dataset is mapped to the alternative(s) suited to its KNOWN regime.
+
+| dataset (regime) | alternative | result | verdict vs DUSTED §22 |
+|---|---|---|---|
+| **Bengalese** (discrete, diverse) | PST + Transition Network | PST **247** predictive contexts (depth 4); net 24 nodes, **5 communities**, clustering 0.714 | **CORROBORATES** (purity 0.788); DTW's indel-tolerance still wins on purity recovery |
+| **Egyptian fruit bat** (graded, n=26) | RQA + Matrix Profile | RQA **DET 0.229 / LAM 0.169**; MP recurrence 0.872 | **COMPLEMENTS** — quantifies the graded dynamics DTW over-merged (cov 0.153); `graded → RQA` router candidate |
+| **Infant marmoset** (sparse) | Matrix Profile (+ RQA) | MP **recurrence_fraction 0.788**, RQA LAM 0.493 | **FAST PRE-FILTER** — token-free O(n log n) stutter detector (DUSTED collapsed to [1,1], cov 0.028) |
+| **LibriSpeech** (diverse syntactic) | Transition Network (word transitions) | **639 nodes**, 1205 edges, **19 communities**, clustering 0.093, density 0.003 | **UPPER BOUND** — scales to a far larger vocabulary than the sparse animal repertoires (Bengalese 24 nodes) |
+
+**The takeaway — no alternative replaces DUSTED; each finds its regime niche.** PST/Transition-Network
+*corroborate* DUSTED on discrete repertoires (same modular structure, different math); RQA *complements*
+it on graded bouts where DTW over-merges; Matrix Profile is a *fast token-free pre-filter* for the
+degenerate regime; the LibriSpeech word network is the *diverse-inventory upper bound*. **Promotion
+rule:** a decisive regime-win promotes an alternative to a router branch (e.g. `graded → RQA`), never a
+wholesale DUSTED replacement.
+
+**Honest caveats.** (1) The wav2vec2 aligner emits word IDENTITIES + phoneme TIMES (not phoneme
+identities), so the LibriSpeech upper bound uses WORD transitions, not the HECB sub-word units the user
+named (HECB is meerkat-only). (2) Bat n=26 (firmed up from an initial n=6 by sampling 60 files; the
+RQA DET/LAM were stable across both — 0.236/0.191 → 0.229/0.169 — so the graded-regime verdict is
+sample-robust). (3) All alternatives operate on the all-species acoustic fingerprint (continuous) or its
+k-means cluster IDs (discrete) — firewall-clean; structure, NOT validated meaning
+(`semantic_validation: none`).

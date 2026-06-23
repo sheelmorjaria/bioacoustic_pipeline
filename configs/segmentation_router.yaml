@@ -72,3 +72,49 @@ segmentation_router:
   domain_gate:
     config: configs/model_metadata.json
     negative_control: ESC-50
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Architecture v1.0 freeze: router audit + regime classification + abstention trail.
+# These make the central router decision auditable and abstention a first-class output.
+# Additive (siblings of segmentation_router); no change to the regime entries above.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Per-run audit of the router decision (Architecture v1.0 invariant #1). Each run
+# records which regime was detected, which method was chosen, the alternative that was
+# tested, and the failure mode the choice protects against. Populated into
+# trace["router_audit"] by orchestration.run_pipeline.
+router_audit:
+  enabled: true
+  output: trace["router_audit"]   # {corpus, acoustic_regime, router_choice, alternative_tested, failure_mode}
+
+# Regime classifier — manifest (species profile) first, acoustic-feature fallback for
+# unknown corpora. Maps the four acoustic features below to one of the three regimes.
+regime_classifier:
+  method: manifest_or_auto
+  features:
+    - call_density_per_minute
+    - median_snr_db
+    - spectral_continuity   # continuous stream vs discrete calls
+    - ultrasonic_fraction
+  thresholds:
+    discrete_event_calls:
+      spectral_continuity: "< 0.3"
+      median_snr_db: "> 8"
+    continuous_speech_like:
+      spectral_continuity: "> 0.6"
+      call_density_per_minute: "> 120"
+    exploratory_unlabeled:
+      fallback: nbd_proposal + ABSTAIN
+
+# Abstention is a first-class SCIENTIFIC OUTPUT, not a failure. An axis that does not
+# measure is never a biological null. These named reasons are surfaced in the report's
+# abstention trail (verdict_engine.evidence_profile.AbstentionReason mirrors this list).
+abstention_reasons:
+  - too_few_calls
+  - low_parent_event_confidence     # HECB gate (min_parent_confidence) skipped internal annotation
+  - unstable_motif_bootstrap
+  - null_not_exceeded
+  - domain_rejected                 # domain gate → not_applicable (distinct from not_evaluable)
+  - context_labels_insufficient
+  - identity_confound_unresolved
+  - regime_unclassified

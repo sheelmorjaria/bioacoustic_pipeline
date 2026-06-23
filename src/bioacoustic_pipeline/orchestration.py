@@ -265,6 +265,45 @@ def _segment_for_pipeline(
     return segment_audio(audio, sr, profile, calibrator=calibrator, cpc=cpc)
 
 
+def _router_audit(
+    species: str, segmentation: str, cal_fitted: bool, hecb_state: dict | None
+) -> dict:
+    """Architecture v1.0 invariant #1: the router decision is auditable.
+
+    Derives the acoustic regime + chosen method + the alternative tested + the failure
+    mode the choice protects against, from the segmentation mode + calibrator state.
+    Mirrors the regimes in configs/segmentation_router.yaml. (Acoustic-feature regime
+    classification is the manifest_or_auto future path; today the regime follows the
+    explicit ``segmentation`` argument.)
+    """
+    if segmentation == "hecb":
+        return {
+            "corpus": species,
+            "acoustic_regime": "discrete_event_calls",
+            "router_choice": "pcen_crnn + hecb_annotator",
+            "alternative_tested": "nbd_calibrator",
+            "failure_mode": "NBD over-segments discrete calls in field noise; CRNN isolates them",
+            "hecb_available": bool(hecb_state and hecb_state.get("available")),
+        }
+    if cal_fitted:
+        return {
+            "corpus": species,
+            "acoustic_regime": "continuous_speech_like",
+            "router_choice": "nbd_calibrator",
+            "alternative_tested": "pcen_crnn",
+            "failure_mode": "CRNN word detection weak on continuous speech (F1 0.59 << 0.836)",
+            "hecb_available": None,
+        }
+    return {
+        "corpus": species,
+        "acoustic_regime": "exploratory_unlabeled",
+        "router_choice": "nbd_proposal + ABSTAIN",
+        "alternative_tested": "learned calibrator (needs training data)",
+        "failure_mode": "untrained segmenter could impose false structure; ABSTAIN guards it",
+        "hecb_available": None,
+    }
+
+
 def run_pipeline(
     audio_paths,
     species: str,
@@ -565,6 +604,7 @@ def run_pipeline(
         "tokenizer_skipped_reason": tk_skip,
         "calibrator_fitted": cal_fitted,
         "segmentation": segmentation,
+        "router_audit": _router_audit(species, segmentation, cal_fitted, hecb_state),
         "hecb": (
             {
                 "available": hecb_state["available"],

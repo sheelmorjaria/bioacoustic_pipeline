@@ -32,6 +32,28 @@ class AxisResult:
         self.confidence = max(0.0, min(1.0, self.confidence))
 
 
+class AbstentionReason:
+    """Canonical reasons an axis abstains (Architecture v1.0 freeze).
+
+    Abstention is a scientific OUTPUT, not a failure: an axis that does not measure is
+    never a biological null. ``not_evaluable`` = could not compute (sparse data);
+    ``not_applicable`` = refused to interpret (wrong domain, e.g. domain gate). This
+    vocabulary names the structured reason behind each abstention so the report can
+    surface a full trail. String constants (not Enum) to match the codebase idiom
+    (NOT_EVALUABLE / NOT_APPLICABLE). Mirrors ``abstention_reasons`` in
+    configs/segmentation_router.yaml.
+    """
+
+    TOO_FEW_CALLS = "too_few_calls"
+    LOW_PARENT_EVENT_CONFIDENCE = "low_parent_event_confidence"
+    UNSTABLE_MOTIF_BOOTSTRAP = "unstable_motif_bootstrap"
+    NULL_NOT_EXCEEDED = "null_not_exceeded"
+    DOMAIN_REJECTED = "domain_rejected"
+    CONTEXT_LABELS_INSUFFICIENT = "context_labels_insufficient"
+    IDENTITY_CONFOUND_UNRESOLVED = "identity_confound_unresolved"
+    REGIME_UNCLASSIFIED = "regime_unclassified"
+
+
 @dataclass
 class EvidenceProfile:
     """The full multi-axis verdict — a profile, not a single label."""
@@ -39,6 +61,21 @@ class EvidenceProfile:
     species: str
     axes: dict[str, AxisResult] = field(default_factory=dict)
     domain: dict | None = None  # domain-gate block (None for an un-gated communication run)
+    # Architecture v1.0: abstention trail. Each (axis, reason) records WHY an axis did
+    # not measure (reason = an AbstentionReason.* constant) — surfaced in as_dict/summary.
+    # Abstention is a first-class scientific output, never a biological null.
+    abstentions: list[tuple[str, str]] = field(default_factory=list)
+
+    def record_abstention(self, axis: str, reason: str) -> None:
+        """Record why an axis abstained (``reason`` = an AbstentionReason.* constant)."""
+        self.abstentions.append((axis, reason))
+
+    @property
+    def abstention_reasons(self) -> dict[str, str]:
+        return dict(self.abstentions)
+
+    def is_abstained(self, axis: str) -> bool:
+        return axis in self.abstention_reasons
 
     @property
     def validated_semantics(self) -> bool:
@@ -69,6 +106,8 @@ class EvidenceProfile:
                 for k, v in self.axes.items()
             },
         }
+        if self.abstentions:
+            out["abstentions"] = [{"axis": ax, "reason": r} for ax, r in self.abstentions]
         if self.domain is not None:
             out["domain"] = self.domain
         return out

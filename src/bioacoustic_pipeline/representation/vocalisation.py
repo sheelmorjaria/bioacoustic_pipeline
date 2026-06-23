@@ -357,3 +357,84 @@ def format_4way_table(result: dict) -> str:
     lines.append(_row("whole + sub SEQUENCE", result["sequence"]))
     lines.append(_row("sub-call (parent lbl)", result["subcall"]))
     return "\n".join(lines)
+
+
+# ─── AblationResult: whole-call-primary invariant (Architecture v1.0 freeze) ───
+
+
+@dataclass
+class AblationResult:
+    """Structured summary of the whole/sub/pooled/sequence ablation.
+
+    Enforces the whole-call-primary invariant (Architecture v1.0 #3): every ablation
+    names a winner and a calibrated claim strength. Whole-call winning → ``strong``;
+    pooled/sequence augmenting the whole on the chosen metric → ``moderate``; sub-call
+    alone leading → ``weak``/exploratory (whole-call remains primary regardless).
+
+    Wrapper over the raw dict returned by ``whole_sub_pooled_sequence_ablation`` — that
+    function's return type is unchanged for backward compatibility; call
+    ``summarize_ablation(result)`` to get this structured verdict.
+    """
+
+    whole: float
+    subcall: float | None
+    pooled: float
+    sequence: float
+    metric: str  # "V" (Cramer's V association) | "probe" (linear-probe accuracy)
+    winner: str  # "whole" | "subcall" | "pooled" | "sequence"
+    interpretation: str
+    claim_strength: str  # "strong" | "moderate" | "weak" | "abstained"
+
+    @property
+    def pooled_adds_value(self) -> bool:
+        return self.pooled > self.whole
+
+    @property
+    def sequence_adds_value(self) -> bool:
+        return self.sequence > self.whole
+
+
+def summarize_ablation(result: dict, metric: str = "V") -> AblationResult:
+    """Wrap a ``whole_sub_pooled_sequence_ablation`` dict into an AblationResult.
+
+    Args:
+        result: dict from ``whole_sub_pooled_sequence_ablation`` (keys whole/pooled/
+            sequence/subcall, each a ``{V, nmi, p, probe}`` dict or None).
+        metric: "V" (Cramer's V token↔label association) or "probe" (linear-probe acc).
+            The whole-call-primary invariant is enforced on the chosen metric.
+    """
+    def _val(r):
+        if not r:
+            return 0.0
+        v = r.get(metric)
+        return float(v) if v is not None else 0.0
+
+    whole = _val(result.get("whole"))
+    pooled = _val(result.get("pooled"))
+    sequence = _val(result.get("sequence"))
+    subcall_raw = result.get("subcall")
+    subcall = _val(subcall_raw)
+    scores: dict[str, float] = {"whole": whole, "pooled": pooled, "sequence": sequence}
+    if subcall_raw is not None:
+        scores["subcall"] = subcall
+    winner = max(scores, key=scores.get)
+    if winner == "whole":
+        interpretation, claim_strength = "Whole-call primary; sub-call is augmentation", "strong"
+    elif winner in ("pooled", "sequence") and scores[winner] > whole:
+        interpretation = f"{winner} augments whole-call on {metric}"
+        claim_strength = "moderate"
+    elif winner == "subcall":
+        interpretation = "Sub-call structure exploratory; whole-call remains primary"
+        claim_strength = "weak"
+    else:
+        interpretation, claim_strength = "Whole-call primary (default)", "weak"
+    return AblationResult(
+        whole=whole,
+        subcall=subcall if subcall_raw is not None else None,
+        pooled=pooled,
+        sequence=sequence,
+        metric=metric,
+        winner=winner,
+        interpretation=interpretation,
+        claim_strength=claim_strength,
+    )
