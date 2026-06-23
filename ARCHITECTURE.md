@@ -223,3 +223,48 @@ The 44-D acoustic fingerprint consistently preserves individual identity:
 **Sub-call structure does NOT improve individual-ID accuracy** (RookID: whole-call wins
 on all metrics). HECB's value is structural annotation (motifs, position roles), not
 individual-ID accuracy. For *who is calling*, the whole-call fingerprint is the right tool.
+
+---
+
+## 10. H0-CMC framework + speaker-invariant representation science (2026-06-23)
+
+### H0-CMC: Causal Multimodal Convergence
+
+The pipeline's Track C validation framework, refined from H0-Unified. See
+[`h0-cmc-framework.md`](h0-cmc-framework.md) for the full spec + [`cpc-policy.md`](cpc-policy.md)
+for the CPC selective-use policy.
+
+**One-line:** *Animal vocalisations are structured acoustic cues whose functional
+interpretation is validated by receiver responses under controlled social contexts — not
+decoded words from acoustics alone.*
+
+**4-stage evidence ladder:** L0 (acoustic association) → L1 (contextual prediction) →
+L2 (receiver response) → L3 (causal specificity). The computational pipeline operates at
+T0–T1; T2–T4 (playback) is the biological next phase.
+
+**Explicit-vs-implicit model test:** plugged directly into the bat §9 A–G ablation —
+D (acoustic+social) = 4.3× ≈ G (full) = 4.7× → **socially grounded implicit communication**
+(social context is the true complement to acoustics; behavior is a minor bridge).
+
+### Speaker-invariant representation science (human-speech side)
+
+Cross-speaker same-word retrieval (§25) + DBA consensus-template sweep (§27) prove:
+- Word structure **does** generalize across speakers (CPC 5–7× chance, §25).
+- The speaker/word entanglement is **non-additive** — linear centering fails (§25 Δ −0.003),
+  VTLN helps NN but not the template (−0.056), HuBERT/AVES MLM fails (−0.048/−0.068).
+- **Only CPC's contrastive objective** makes DBA averaging help (+0.012) — the sign flips
+  across 5 representations. A speaker-invariant template requires learned non-linear
+  disentanglement, never algebraic averaging of the fingerprint.
+
+### Cross-species speaker↔caller analogy (§25 ↔ §26)
+
+Human **words** generalize across speakers (5–7× chance); animal **call-types** barely
+generalize across callers (RookID fine Event *below* chance). Animal calls are more
+individually stereotyped than human words — the mechanistic root of the dominant individual
+signature (bat Emitter V, RookID Source V).
+
+### CPC selective-use policy
+
+Animal pipeline = **fingerprint + HECB + DUSTED + Track C** (no species CPC).
+CPC = **human-validation / speaker-invariant only**. Optional animal-CPC ablation on one
+dataset only.

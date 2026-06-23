@@ -67,7 +67,9 @@ def summarize(name, motifs, n_calls):
     print(
         f"  {name:22} motifs={s['n_motifs']:4d}  support={s['total_support']:5d}  "
         f"cov={s['coverage']:.3f}  ct_V={s['mean_calltype_V']:.3f} "
-        f"(sig {s['frac_calltype_sig']:.2f})  ca_V={s['mean_caller_V']:.3f}"
+        f"(sig {s['frac_calltype_sig']:.2f})  ca_V={s['mean_caller_V']:.3f}  "
+        f"H={s['family_entropy_norm']:.2f}  top={s['top_family_support_fraction']:.2f}  "
+        f"purity(w)={s['wmean_label_purity']:.2f}"
     )
     return s
 

@@ -197,6 +197,8 @@ def run_bird(bird: int, args) -> dict | None:
         "fixed": sm.summarize_discovery(fixed, len(calls)),
         "dtw": sm.summarize_discovery(dtw, len(calls)),
         "null_p": null["p"],
+        "null_obs": null["observed_support"],
+        "null_mean": null["null_mean"],
         "bootstrap_jac": jac,
     }
 
@@ -231,17 +233,20 @@ def main():
         print("no birds produced data")
         return
     print(f"\n{'=' * 78}\nAGGREGATE across {len(results)} birds (mean)\n{'=' * 78}")
-    print(f"  {'method':20} {'#mot':>5} {'cov':>6} {'purity(mean)':>13} {'purity(wmean)':>14}")
+    print(f"  {'method':20} {'#mot':>5} {'cov':>6} {'purity(w)':>9} {'H(norm)':>8} {'top-frac':>8}")
     for key in ("exact", "fixed", "dtw"):
         rs = [r[key] for r in results]
         print(
             f"  {key:20} {np.mean([s['n_motifs'] for s in rs]):5.0f} "
             f"{np.mean([s['coverage'] for s in rs]):6.3f} "
-            f"{np.mean([s['mean_label_purity'] for s in rs]):13.3f} "
-            f"{np.mean([s['wmean_label_purity'] for s in rs]):14.3f}"
+            f"{np.mean([s['wmean_label_purity'] for s in rs]):9.3f} "
+            f"{np.mean([s['family_entropy_norm'] for s in rs]):8.2f} "
+            f"{np.mean([s['top_family_support_fraction'] for s in rs]):8.2f}"
         )
+    null_ratio = np.mean([r["null_obs"] / max(r["null_mean"], 1) for r in results])
     print(
-        f"  DTW null p (mean)={np.mean([r['null_p'] for r in results]):.3f}  "
+        f"  DTW null-ratio (obs/null, mean)={null_ratio:.2f}x  "
+        f"null p (mean)={np.mean([r['null_p'] for r in results]):.3f}  "
         f"bootstrap Jaccard (mean)={np.mean([r['bootstrap_jac'] for r in results]):.3f}"
     )
     print("\nDUSTED BENGALESE DONE  (discoveries = recurrent acoustic terms, NOT words)")

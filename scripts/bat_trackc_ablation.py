@@ -16,6 +16,7 @@ Targets: Context, Emitter, Addressee. Metrics: probe acc, macro-F1.
 
 # Copyright (c) 2025 Sheel Morjaria. All rights reserved.
 """
+
 from __future__ import annotations
 
 import csv
@@ -46,7 +47,6 @@ def load_bat(n, seed):
             rows.append(r)
     rng.shuffle(rows)
     out = []
-    fp_fn = lambda seg, sr: afp.extract(seg, sr, species="bat").combined  # noqa: E731
     for i, r in enumerate(rows):
         if len(out) >= n:
             break
@@ -59,16 +59,18 @@ def load_bat(n, seed):
         fp = np.asarray(afp.extract(audio, SR, species="bat").combined, dtype=np.float32)
         if not np.any(fp):
             continue
-        out.append({
-            "fp": fp,
-            "context": int(r["Context"]),
-            "emitter": int(r["Emitter"]),
-            "addressee": int(r["Addressee"]),
-            "emit_pre": int(r["Emitter pre-vocalization action"]),
-            "addr_pre": int(r["Addressee pre-vocalization action"]),
-            "emit_post": int(r["Emitter post-vocalization action"]),
-            "addr_post": int(r["Addressee post-vocalization action"]),
-        })
+        out.append(
+            {
+                "fp": fp,
+                "context": int(r["Context"]),
+                "emitter": int(r["Emitter"]),
+                "addressee": int(r["Addressee"]),
+                "emit_pre": int(r["Emitter pre-vocalization action"]),
+                "addr_pre": int(r["Addressee pre-vocalization action"]),
+                "emit_post": int(r["Emitter post-vocalization action"]),
+                "addr_post": int(r["Addressee post-vocalization action"]),
+            }
+        )
         if (i + 1) % 200 == 0:
             print(f"  extracted {len(out)}/{n} bouts", flush=True)
     return out
@@ -80,70 +82,170 @@ def onehot(val, max_val):
     return v
 
 
-def probe(X, y, name):
+def probe(X, y, name, groups=None):
+    """LogReg probe. If groups given, use GroupShuffleSplit (held-out by group); else random."""
     from sklearn.linear_model import LogisticRegression  # noqa: PLC0415
     from sklearn.metrics import f1_score  # noqa: PLC0415
-    from sklearn.model_selection import train_test_split  # noqa: PLC0415
+    from sklearn.model_selection import GroupShuffleSplit, train_test_split  # noqa: PLC0415
     from sklearn.preprocessing import StandardScaler  # noqa: PLC0415
 
     X, y = np.asarray(X, dtype=np.float32), np.asarray(y)
     counts = Counter(y.tolist())
     keep = np.array([counts[c] >= 5 for c in y.tolist()])
     X, y = X[keep], y[keep]
+    if groups is not None:
+        groups = np.asarray(groups)[keep]
     n_cls = len(set(y.tolist()))
     chance = 1.0 / n_cls
     if n_cls < 2 or len(X) < 50:
         print(f"  {name:30} insufficient ({len(X)} samples, {n_cls} classes)")
-        return
-    Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.3, random_state=0, stratify=y)
+        return None
+    if groups is not None:
+        gss = GroupShuffleSplit(n_splits=1, test_size=0.3, random_state=0)
+        idx_tr, idx_te = next(gss.split(X, y, groups))
+        Xtr, Xte, ytr, yte = X[idx_tr], X[idx_te], y[idx_tr], y[idx_te]
+    else:
+        Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.3, random_state=0, stratify=y)
     sc = StandardScaler().fit(Xtr)
     clf = LogisticRegression(max_iter=2000, class_weight="balanced").fit(sc.transform(Xtr), ytr)
     acc = clf.score(sc.transform(Xte), yte)
     mf1 = f1_score(yte, clf.predict(sc.transform(Xte)), average="macro")
-    print(f"  {name:30} probe={acc:.3f}  macroF1={mf1:.3f}  chance={chance:.3f}  lift={acc/chance:.1f}×")
+    print(
+        f"  {name:30} probe={acc:.3f}  macroF1={mf1:.3f}  chance={chance:.3f}  lift={acc / chance:.1f}×"
+    )
+    return acc / chance  # lift (for the comparison table)
 
 
 def main():
-    n = 1500
-    print(f"Loading {n} bat bouts + extracting fingerprints (250 kHz)...", flush=True)
-    bouts = load_bat(n, seed=0)
+    import argparse  # noqa: PLC0415
+
+    ap = argparse.ArgumentParser(description="Bat Track C A-G context ablation + leakage controls")
+    ap.add_argument("--n-bouts", type=int, default=1500)
+    ap.add_argument("--seed", type=int, default=0)
+    args = ap.parse_args()
+
+    print(f"Loading {args.n_bouts} bat bouts + extracting fingerprints (250 kHz)...", flush=True)
+    bouts = load_bat(args.n_bouts, seed=args.seed)
     print(f"  {len(bouts)} bouts loaded", flush=True)
+    n = len(bouts)
 
     # Build feature sets
-    fps = [b["fp"] for b in bouts]
     max_emit = max(b["emitter"] for b in bouts)
     max_addr = max(b["addressee"] for b in bouts)
     max_act = max(max(b["emit_pre"], b["addr_pre"], b["emit_post"], b["addr_post"]) for b in bouts)
 
-    acoustic = np.asarray(fps, dtype=np.float32)
-    social = np.asarray([np.concatenate([onehot(b["emitter"], max_emit), onehot(b["addressee"], max_addr)])
-                         for b in bouts], dtype=np.float32)
-    behavior = np.asarray([np.concatenate([onehot(b["emit_pre"], max_act), onehot(b["addr_pre"], max_act),
-                                            onehot(b["emit_post"], max_act), onehot(b["addr_post"], max_act)])
-                           for b in bouts], dtype=np.float32)
+    acoustic = np.asarray([b["fp"] for b in bouts], dtype=np.float32)
+
+    def build_social(bouts_list):
+        return np.asarray(
+            [
+                np.concatenate([onehot(b["emitter"], max_emit), onehot(b["addressee"], max_addr)])
+                for b in bouts_list
+            ],
+            dtype=np.float32,
+        )
+
+    behavior = np.asarray(
+        [
+            np.concatenate(
+                [
+                    onehot(b["emit_pre"], max_act),
+                    onehot(b["addr_pre"], max_act),
+                    onehot(b["emit_post"], max_act),
+                    onehot(b["addr_post"], max_act),
+                ]
+            )
+            for b in bouts
+        ],
+        dtype=np.float32,
+    )
+    social = build_social(bouts)
+    acoustic_social = np.concatenate([acoustic, social], axis=1)
+    acoustic_behavior = np.concatenate([acoustic, behavior], axis=1)
     combined = np.concatenate([acoustic, social, behavior], axis=1)
 
-    contexts = [b["context"] for b in bouts]
-    emitters = [b["emitter"] for b in bouts]
-    addressees = [b["addressee"] for b in bouts]
+    contexts = np.asarray([b["context"] for b in bouts])
+    emitters = np.asarray([b["emitter"] for b in bouts])
 
-    print(f"\n{'='*70}")
-    print(f"Track C Bat Context Ablation ({len(bouts)} bouts)")
-    print(f"{'='*70}")
+    # ── control 1: random split (the headline A-G matrix) ──
+    print(f"\n{'=' * 70}\nCONTROL 1: random split ({n} bouts)\n{'=' * 70}")
+    lifts = {"random": {}}
+    for name, X in [
+        ("A: acoustic", acoustic),
+        ("B: social", social),
+        ("D: acous+social", acoustic_social),
+        ("E: acous+behav", acoustic_behavior),
+        ("G: full", combined),
+    ]:
+        lifts["random"][name] = probe(X, contexts, name)
+    print("  D≈G → social is the true complement. G≫a → context-dependent.")
 
-    for target_name, target in [("CONTEXT", contexts), ("EMITTER", emitters), ("ADDRESSEE", addressees)]:
-        print(f"\n=== Target: {target_name} ===")
-        probe(acoustic, target, "acoustic-only (fp)")
-        probe(social, target, "social-only (emit+addr)")
-        probe(behavior, target, "behavior-only (actions)")
-        probe(combined, target, "combined (acoustic+social+behav)")
+    # ── control 2: social-label shuffle (leakage check) ──
+    print(f"\n{'=' * 70}\nCONTROL 2: social-label shuffle (emitter/addressee permuted)\n{'=' * 70}")
+    rng = random.Random(args.seed)
+    shuffled = list(bouts)
+    emit_vals = [b["emitter"] for b in shuffled]
+    addr_vals = [b["addressee"] for b in shuffled]
+    rng.shuffle(emit_vals)
+    rng.shuffle(addr_vals)
+    for b, e, a in zip(shuffled, emit_vals, addr_vals):
+        b["emitter"], b["addressee"] = e, a
+    social_sh = build_social(shuffled)
+    acoustic_social_sh = np.concatenate([acoustic, social_sh], axis=1)
+    combined_sh = np.concatenate([acoustic, social_sh, behavior], axis=1)
+    lifts["shuffle"] = {}
+    for name, X in [
+        ("A: acoustic", acoustic),
+        ("B: social(shuf)", social_sh),
+        ("D: acous+social(shuf)", acoustic_social_sh),
+        ("G: full(shuf)", combined_sh),
+    ]:
+        lifts["shuffle"][name] = probe(X, contexts, name)
+    print("  If D(shuf) ≈ A → D's lift came from genuine social signal, not a confound.")
 
-    print(f"\n=== Track C read ===")
-    print("  If combined >> acoustic-only for CONTEXT:")
-    print("    → context requires multimodal/social grounding (strongest Track C claim)")
-    print("  If combined ≈ acoustic-only:")
-    print("    → context is genuinely hard from any single-bout features")
-    print("BAT TRACK C ABLATION DONE")
+    # ── control 3: emitter-held-out (generalization check) ──
+    print(f"\n{'=' * 70}\nCONTROL 3: emitter-held-out (GroupShuffleSplit by emitter)\n{'=' * 70}")
+    lifts["emit-holdout"] = {}
+    for name, X in [
+        ("A: acoustic", acoustic),
+        ("B: social", social),
+        ("D: acous+social", acoustic_social),
+        ("G: full", combined),
+    ]:
+        lifts["emit-holdout"][name] = probe(X, contexts, name, groups=emitters)
+    print("  If D > A/B under held-out → social-grounding generalizes to unseen callers.")
+
+    # ── comparison table ──
+    print(f"\n{'=' * 70}\nLEAKAGE / GENERALIZATION COMPARISON TABLE (CONTEXT target)\n{'=' * 70}")
+    print(f"  {'split':22} {'A acoustic':>11} {'B social':>9} {'D acous+soc':>12} {'G full':>8}")
+    print("  " + "-" * 66)
+    labels = {
+        "random": "random split",
+        "shuffle": "social-shuffle",
+        "emit-holdout": "emitter-held-out",
+    }
+    for ctrl in ["random", "shuffle", "emit-holdout"]:
+        d = lifts[ctrl]
+        row = [labels[ctrl]]
+        for key in ["A: acoustic", "B: social(shuf)", "D: acous+social(shuf)", "G: full(shuf)"]:
+            row.append(d.get(key, d.get(key.replace("(shuf)", ""))))
+        # normalise keys (shuffle uses different names)
+        a_val = d.get("A: acoustic")
+        b_key = "B: social(shuf)" if ctrl == "shuffle" else "B: social"
+        d_key = "D: acous+social(shuf)" if ctrl == "shuffle" else "D: acous+social"
+        g_key = "G: full(shuf)" if ctrl == "shuffle" else "G: full"
+
+        def fmt(v):
+            return f"{v:.1f}×" if v else "  n/a"
+
+        print(
+            f"  {labels[ctrl]:22} {fmt(a_val):>11} {fmt(d.get(b_key)):>9} "
+            f"{fmt(d.get(d_key)):>12} {fmt(d.get(g_key)):>8}"
+        )
+
+    print("\n  Read: shuffle should collapse D→A (social becomes noise).")
+    print("        Emitter-held-out should preserve D > A (generalization to unseen callers).")
+    print("BAT TRACK C ABLATION + CONTROLS DONE")
 
 
 if __name__ == "__main__":

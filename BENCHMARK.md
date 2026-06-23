@@ -262,19 +262,48 @@ association metrics across conditions.*
 `scripts/bat_trackc_ablation.py` — the scientific gap: does combining modalities recover
 context beyond the acoustic ceiling? 1500 bat bouts, 11 context classes (chance=0.091).
 
-### Context recovery (the key target)
+### Context recovery — the A–G pairwise ablation matrix (the key target)
 
-| modality | probe acc | macro-F1 | lift |
-|---|---|---|---|
-| acoustic-only (fingerprint) | 0.249 | 0.218 | 2.7× |
-| social-only (emitter+addressee) | 0.267 | 0.223 | 2.9× |
-| behavior-only (pre/post actions) | 0.087 | 0.162 | 1.0× |
-| **combined (acoustic+social+behavior)** | **0.424** | **0.355** | **4.7×** |
+| model | features | probe acc | macro-F1 | lift |
+|---|---|---|---|---|
+| **A** | acoustic-only (fingerprint) | 0.249 | 0.218 | 2.7× |
+| **B** | social-only (emitter+addressee) | 0.267 | 0.223 | 2.9× |
+| **C** | behavior-only (pre/post actions) | 0.087 | 0.162 | 1.0× |
+| **D** | acoustic + social | **0.393** | **0.341** | **4.3×** |
+| **E** | acoustic + behavior | 0.298 | 0.307 | 3.3× |
+| **F** | social + behavior | 0.369 | 0.327 | 4.1× |
+| **G** | acoustic + social + behavior | **0.424** | **0.355** | **4.7×** |
 
-**The synergy is genuine:** combined (4.7×) nearly doubles either single modality (acoustic
-2.7×, social 2.9×). Acoustic + social carry **complementary** context information — neither
-alone is sufficient, but together they recover substantially more. Behavior-only is
-near-chance (1.0×) — the discrete action codes alone don't carry context.
+**The pairwise decomposition reveals where the synergy lives:**
+- **D (acoustic+social, 4.3×) ≈ G (4.7×)** — behavior adds only **+0.4×** on top of
+  acoustic+social. The social context (who is calling + who is addressed) is the **true
+  complementary modality** to acoustics; the 4.7× is **91% explained** by the acoustic+social
+  synergy alone.
+- **D ≫ A (2.7×) and D ≫ B (2.9×)** — the acoustic+social combination is
+  **super-additive** (4.3 > max(2.7, 2.9)): neither modality alone recovers context
+  adequately, but together they nearly double either one.
+- **E (acoustic+behavior, 3.3×)** — behavior adds a modest **+0.6×** over acoustic alone;
+  it is a weak complement to audio (much weaker than social's +1.6× in D).
+- **C (behavior-only, 1.0×)** — behavior carries **zero standalone context signal**; it
+  functions only as a minor bridge/regularizer within a multimodal combination.
+- **F (social+behavior, 4.1×)** — social dominates the non-acoustic side; adding behavior
+  to social adds little (+1.2× over B alone, vs D's +1.6× from adding social to acoustic).
+
+### Leakage / generalization controls (reviewer-proof)
+
+| split | A acoustic | B social | D acous+social | G full |
+|---|---|---|---|---|
+| **random** | 2.7× | 2.9× | **4.3×** | **4.7×** |
+| **social-shuffle** (emit/addr permuted) | 2.7× | **1.0×** | **3.2×** | 4.0× |
+| **emitter-held-out** (GroupShuffleSplit) | 2.6× | 2.8× | **4.1×** | **4.8×** |
+
+- **Social-shuffle** collapses B to chance (1.0×) and drops D by 1.1× (4.3→3.2) → ~69% of
+  D's lift over A is genuine social-context signal. The residual +0.5× above A is base-rate
+  leakage (shuffled emitter IDs preserve marginal context priors from data collection). The
+  synergy is NOT a pure confound.
+- **Emitter-held-out** preserves D at 4.1× (only −0.2× from random 4.3×) and G at 4.8× →
+  the social-grounding **generalises to unseen callers**. It is NOT memorising
+  session-specific emitter↔context co-occurrences.
 
 ### Manuscript-ready Track C conclusion
 
@@ -799,3 +828,508 @@ independent §9 supervised 4.7× lift are the converging evidence. (CCA measures
 *form* — caller/context covary with acoustics — not semantic meaning; `semantic_validation`
 stays `none`.)
 
+---
+
+## 21. LibriSpeech UNIFIED rerun — same words for §14 + Stage C + Stage D (2026-06-23)
+
+`scripts/ls_unified_rerun.py` — fixes the apples-to-apples gap: the three LS word-structure
+scripts (§14, Stage C, Stage D) each independently sampled files + re-ran wav2vec2 forced
+alignment + HuBERT/CPC, on different `keep` subsets (caps 1200/600/800). This does the
+extraction **once** (one forced-align + one HuBERT + one CPC pass; one k-means per source
+shared by §14 and Stage C) and runs **all three metric sets on the identical subset**
+(n=600 words, 89 freq types, min_freq=5, seed=0), saving a manifest
+(`outputs/ls_unified/{manifest.json,recs.pkl}` — config + file_ids + word_spans + vectors)
+so thresholds/k can be re-scored without re-extraction (`--load`).
+
+### §14 — within/across edit-dist + NN + motif→word (n=600)
+
+| source | within | across | ratio | NN | NN_xsp | motifV |
+|---|---|---|---|---|---|---|
+| HECB(k32) | 0.917 | 0.935 | 0.981 | 0.098 | 0.090 | 0.429 |
+| HuBERT-km(k50) | 0.939 | 0.928 | **1.012** | 0.047 | 0.047 | 0.424 |
+| **fingerprint(k32)** | 0.907 | 0.942 | 0.964 | 0.118 | 0.114 | **0.481** |
+| CPC-km(k50) | 0.900 | 0.940 | 0.958 | **0.175** | **0.171** | 0.458 |
+
+### Stage C — DUSTED recurrent-term discovery (DTW row, same n=600)
+
+| source | #fams | cov | word_V | H | top-frac | null-ratio | bootstrap |
+|---|---|---|---|---|---|---|---|
+| HECB(k32) | 260 | 0.038 | 0.419 | 0.98 | 0.02 | 1.15× | 0.181 |
+| HuBERT-km(k50) | 617 | 0.080 | 0.416 | 0.96 | 0.01 | 1.35× | **0.428** |
+| **fingerprint(k32)** | 269 | 0.068 | **0.453** | 0.96 | 0.03 | 1.26× | 0.298 |
+| CPC-km(k50) | 738 | 0.052 | 0.427 | 0.97 | 0.01 | 1.21× | 0.310 |
+
+### Stage D — whole-word embedding clustering (same n=600, k=60)
+
+| source | V | ARI | purity | tokenF1 |
+|---|---|---|---|---|
+| **fingerprint** | **0.517** | 0.054 | 0.282 | 0.282 |
+| HECB-pooled | 0.451 | 0.013 | 0.223 | 0.223 |
+| HuBERT-mean | 0.386 | −0.003 | 0.193 | 0.193 |
+| CPC-mean | 0.463 | 0.033 | 0.248 | 0.248 |
+
+### Unified verdict (the point of putting all three on the same words)
+
+- **The fingerprint leads on every aggregate metric**: §14 motifV 0.481, Stage-C DTW word_V
+  0.453, Stage-D V 0.517 — the HAC/Sakoe-Chiba fix removed DTW over-merging, and the
+  fingerprint's lead over HuBERT **widened** (the prediction in the §14→§16 arc held). It is
+  the best single representation for unsupervised word structure on this subset.
+- **HuBERT is metric-dependent (confirmed, uniformly)**: it *fails* §14 (within/across ratio
+  1.012 > 1 — same-word sequences are no closer than random) and is **worst on Stage-D
+  clustering** (V 0.386, tokenF1 0.193), yet it is the **most bootstrap-stable under DTW**
+  (Stage-C Jaccard 0.428) and recovers word-associated terms once DTW alignment is allowed —
+  exactly the "HuBERT fails Levenshtein/clustering, recovers under DTW" conclusion of §15/§16,
+  now on identical words.
+- **CPC is the NN surprise**: best NN accuracy (0.175, +48% over fingerprint) and a strong
+  Stage-D V (0.463) — the in-house self-supervised model is competitive on same-word NN even
+  where the fingerprint wins the aggregate. (Human-only; firewall-blocked on animals.)
+- The low absolute Stage-D V (~0.5 for 60 clusters) is the **semantic ceiling** on its face:
+  unsupervised whole-word clustering from acoustics alone recovers *form*, not the lexicon —
+  consistent with the §17 token↔word calibration (word info is speaker-entangled in the
+  latent). Terms remain recurrent acoustic structure, **not words**.
+
+Run: `python scripts/ls_unified_rerun.py --n-files 200 --max-words 600`; re-score:
+`python scripts/ls_unified_rerun.py --load outputs/ls_unified --max-words 600`.
+
+---
+
+## 22. Cross-corpus DUSTED motif table — uniform threshold, HAC-corrected (2026-06-23)
+
+The three animal DUSTED scripts (`hecb_dusted_marmoset`, `dusted_bat`, `dusted_bengalese`) now
+emit identical DTW columns. Re-run at a **uniform DTW threshold (thr=0.15, near-duplicate tier)**
+so the three corpora are directly comparable. Columns: #families, coverage, purity(wmean),
+normalised entropy H, top-family-support-fraction, order-shuffle null-ratio (observed/null),
+bootstrap top-10 Jaccard.
+
+| corpus (n) | #fams | cov | purity(w) | H(norm) | top-frac | null-ratio | bootstrap |
+|---|---|---|---|---|---|---|---|
+| **Bengalese finch** (3 birds, 150 bouts ea) | 457 | 0.480 | **0.788** | 0.85 | 0.12 | **2.67×** | **0.509** |
+| **Egyptian fruit bat** (300 bouts) | 306 | 0.153 | 0.39 † | 0.87 | 0.06 | 1.36× | 0.394 |
+| **Infant marmoset** (1500 calls) | 139 | 0.028 | 0.49 † | 0.89 | 0.06 | 1.55× | 0.229 |
+
+† purity label is corpus-specific (bengalese = GT syllable sequence → genuine blind recovery;
+bat = Context; marmoset = call-type) so absolute purity is **not** comparable across corpora —
+only within-corpus method trends are. The Bengalese 0.788 is the only GT-validated purity.
+
+**The cross-corpus claim holds on honest (HAC-corrected) numbers.** The relative ordering —
+Bengalese (diverse, GT-pure, strong null, stable) > bat (graded, emitter-signatured, moderate)
+> marmoset (sparse, low coverage, unstable) — is unchanged from §11/§12/§13, but the absolute
+coverage/ct_V figures there were **inflated by connected-components chaining** (single-linkage
+merged everything into few mega-families). The HAC + Sakoe-Chiba fix (§22 supersedes §11/§12/§13
+coverage numbers) corrects this uniformly:
+
+- **§11 marmoset**: "DTW ct_V 0.508, 4.7× exact" was a CC-chaining artifact — HAC-corrected
+  marmoset DTW ct_V ≈ 0.07 (≈ exact n-grams). The honest marmoset DTW carries **no call-type
+  advantage**; its inventory is genuinely sparse (cov 0.028 at the fine tier).
+- **§12 bengalese**: DTW coverage 0.90 → 0.480 (HAC), but **purity 0.788 and null 2.67× survive** —
+  the positive control is real, just not as coverage-inflated as the chained clustering suggested.
+- **§13 bat**: top-frac 0.72 → 0.06 (the Phase-1 HAC fix already recorded); Emitter V 0.446 ≫
+  Context V 0.167 stands unchanged.
+
+**Manuscript framing:** DUSTED lands exactly where the repertoire predicts — diverse discrete
+syllables (Bengalese) → graded emitter-signatured bouts (bat) → sparse one-unit repeats
+(marmoset). The difference is the **corpus/repertoire, not the method**; on uniform thresholds
+and HAC clustering the three corpora cleanly separate on #families / null-ratio / bootstrap,
+with Bengalese the only one whose discovered terms are GT-validated (0.788 syllable purity).
+Terms remain recurrent acoustic structure, **not words**.
+
+---
+
+## 23. RookID Event/Comment enrichment — whole-call fp vs DUSTED motifs × 6 targets (2026-06-23)
+
+`scripts/rookid_event_comment.py` — keeps the two columns the prior RookID scripts dropped:
+**`Event`** (corvid ethogram code, 561 distinct; 62.5% of rows are song) parsed into `is_sing` /
+`activity` (sing|nest_building|call) / `song_variant` (sing-prefix), and **`Comment`** (14% of
+rows) parsed into `social_other` (a named partner rook, via word-boundary match) + `overlap` +
+`quality` flags. Two per-call representations — whole-call fingerprint (k-means token → V/NMI +
+date-held-out probe) and DUSTED motif (per-call dominant DTW family by signature-presence →
+V/NMI) — scored against 6 targets (n=2809 calls with ≥2 NBD sub-units).
+
+| target | n | #cls | fp-V | fp-NMI | fp-probe | motif-V | motif-NMI |
+|---|---|---|---|---|---|---|---|
+| **Source** (individual) | 2798 | 14 | 0.308 | 0.175 | 0.325 | 0.347 | 0.156 |
+| **activity** (sing/nest/call) | 2730 | 2 | 0.673 | 0.159 | **0.846** | 0.657 | 0.092 |
+| **sing/non-sing** | 2730 | 2 | 0.673 | 0.159 | **0.846** | 0.657 | 0.092 |
+| **song_variant** (sing-prefix) | 1938 | 14 | 0.242 | 0.087 | 0.118 | 0.327 | 0.129 |
+| **social_other** (partner rook) | 2809 | 2 | **0.041** | 0.001 | n/a | 0.176 | 0.001 |
+| **date** (recording) | 2809 | 4 | 0.249 | 0.055 | n/a | 0.315 | 0.057 |
+
+**Findings (a clean individual-vs-social separation):**
+1. **Individual identity (Source) IS in the call** (fp-V 0.31, motif-V 0.35, probe 0.33) —
+   reproduces §18; the whole-call fingerprint recovers *who* is calling across 14 rooks.
+2. **Acoustic category (sing vs call) is strongly recoverable** (fp-V 0.67, probe 0.85) —
+   expected: song vs call is an acoustic distinction by construction, not a semantic claim.
+3. **`social_other` is NOT in the call (fp-V 0.041, ~chance)** — the clean Track-C-style
+   negative: which *other* rook was present is not encoded in the caller's acoustics. This is
+   the semantic-ceiling on its face for social labels — association only, and here essentially
+   none. (motif-V 0.176 is a `none`-vs-named base-rate artifact; NMI ≈ 0 confirms no signal.)
+4. `song_variant` and `date` are weak–moderate (0.24–0.33): within-song call-type and
+   recording-condition carry partial, non-dominant signal; `date` flags mild condition leakage.
+
+**Manuscript framing:** across RookID targets the pattern is *what* (activity/sing) and *who*
+(Source) are in the acoustics; *social context* (the partner rook) is not. This generalizes the
+bat §13 / §20 finding (caller ≫ context) into a directly-commented corvid corpus: structure
+encodes caller + call-form, not the social situation. Motifs remain recurrent acoustic
+structure, **not words** — `semantic_validation` stays `none`. (social_other is sparse/14%;
+date/fp-probe n/a where the held-out split yields <2 classes.)
+
+---
+
+## 24. Soundwel Track C — does acoustic structure predict emotional valence beyond call type? (2026-06-23)
+
+`scripts/soundwel_trackc.py` — Soundwel = 6887 labelled pig vocalizations (44.1 kHz,
+~0.4 s) with **Valence** (Pos/Neg) / **Context** (18) / **Call Type** (6 non-NaN) / **Sex** /
+**Recording Team** (6 farms). The clean Track C test: *does acoustic structure predict
+valence/context beyond vocalisation type?* Six feature sets (whole fp, HECB-pooled,
+relative-sequence, DUSTED motif-histogram, call-type one-hot, whole+call-type) × 3 targets,
+**Recording-Team-held-out** LogReg macro-F1. Coverage: whole fp 6517/6517; ≥2-sub-unit
+features 6461/6517 (99%). Pig is a new species on the all-species fp + raw NBD (firewall-clean).
+
+### 6-feature × 3-target probe (Team-held-out macro-F1)
+
+| target | whole fp | HECB | seq | motif | ctype | whole+ctype |
+|---|---|---|---|---|---|---|
+| vocalisation_type (ch 0.17, k=6) | **0.413** | 0.275 | 0.382 | 0.288 | — | — |
+| production_context (ch 0.50, k=2) | 0.662 | — | — | — | **0.790** | 0.626 |
+| emotional_valence (ch 0.50, k=2) | 0.478 | — | — | — | 0.296 | 0.466 |
+
+### Decisive valence block (the "beyond call type" test; chance 0.50)
+
+| test | macro-F1 |
+|---|---|
+| call-type → valence (baseline) | 0.508 |
+| fp → valence | 0.478 |
+| **fp + call-type → valence** | **0.466** (adding fp *hurts*) |
+| **within-call-type fp → valence** | **0.350** (well below chance; 6 calltypes, n=5780) |
+| fp → valence (male / female) | 0.339 / 0.352 (both below chance) |
+
+### Verdict — the bioacoustic semantic ceiling, proven
+
+**Acoustic structure does NOT predict emotional valence — it is at/below chance, including
+the clean within-call-type test (0.350 ≪ 0.50).** Holding call type fixed, valence is not
+recoverable from the fingerprint across farms; adding the fingerprint to call-type actively
+*reduces* valence accuracy (0.466 < 0.508). Production-context retrieval is dominated by the
+**call-type→context design confound** (ctype 0.790 ≫ whole 0.662): contexts are defined by
+the call types they elicit, so call-type "predicts" context by construction (and only k=2
+contexts survived the farm-held-out split — most contexts are farm-specific). Vocalisation
+*type* itself IS acoustic (whole fp 0.413 = 2.4× chance) — the pipeline recovers call form,
+not emotional state.
+
+**Manuscript framing:** emotional valence is locked inside the call-type template; it is not
+linearly separable from call form, and it does not generalize across farms from acoustics
+alone. This is the Soundwel confirmation of the project's semantic ceiling — a direct Track C
+negative that complements the bat/RookID context negatives (§13, §23): *acoustics encode call
+form (+ caller signature, §25/§26), not emotion/context/meaning.* Valence prediction here is
+acoustic **association** (here, none); `semantic_validation` stays `none`. (sex-controlled
+sub-splits both below chance; context-balanced n/a on the held-out split — the farm confound
+itself is the finding.)
+
+---
+
+## 25. LibriSpeech speaker-invariant / universal acoustic-structure test (2026-06-23)
+
+`scripts/ls_speaker_invariant.py` — does the ordered acoustic sub-unit representation
+preserve **word-associated structure independently of speaker identity**? Loads the §21
+unified manifest (`outputs/ls_unified/recs.pkl` — 2903 word instances, 178 speakers, 325
+multi-speaker word types, mean 5.3 speakers/word) — **no re-extraction**; k-means +
+distances + probes only. The decisive test is `dist(same-word, diff-speaker) <
+dist(diff-word, same-speaker)` plus **speaker-held-out cross-speaker same-word retrieval**.
+
+### 4-way distances (ratio = d(diff-word,same-spk) ÷ d(same-word,diff-spk); >1 ⇒ word > speaker)
+
+| representation | sw/ds | dw/ss | ratio |
+|---|---|---|---|
+| fp_whole (cosine) | 0.160 | 0.137 | **0.86** |
+| fingerprint-km | 0.904 | 0.886 | 0.98 |
+| HECB | 0.904 | 0.901 | 1.00 |
+| CPC-km | 0.900 | 0.875 | 0.97 |
+| HuBERT-km | 0.929 | 0.908 | 0.98 |
+| HuBERT-DTW (raw-frame, n=300) | 0.864 | 0.826 | 0.96 |
+
+### Cross-speaker same-word retrieval (eval=400, gallery=1895; gallery excludes query speaker; chance≈0.015)
+
+| representation | top-1 | top-5 | MRR |
+|---|---|---|---|
+| **CPC-km** | **0.105** | **0.315** | **0.212** |
+| fingerprint-km | 0.087 | 0.233 | 0.163 |
+| fp_whole (cosine) | 0.083 | 0.230 | 0.162 |
+| HECB | 0.068 | 0.185 | 0.135 |
+| HuBERT-DTW (n=300) | 0.042 | 0.083 | 0.074 |
+| HuBERT-km (Levenshtein) | 0.018 | 0.098 | 0.062 |
+
+### Word-vs-speaker disentanglement + centering (fp_whole)
+
+- word probe (speaker-held-out macro-F1) = **0.110**; speaker probe = 0.094 (chance 0.006).
+- word probe **after speaker-regression residual** = 0.083 → ~75% of the word signal
+  survives removing the linear speaker component.
+- **speaker-centering** (fp − per-speaker mean): Δtop-1 = **−0.003** (no improvement).
+
+### Honest verdict — a *qualified* universal representation
+
+1. **Cross-speaker same-word retrieval is well above chance** (CPC 7×, fp/fingerprint ~5–6×):
+   word-associated structure **does** survive across speakers — the §14 `NN_xsp ≈ NN` signal
+   holds. **CPC is the most speaker-invariant** representation; **HuBERT-km Levenshtein is
+   near-chance (0.018)** but **HuBERT-DTW partially recovers it (0.042)** — exactly the §16
+   point that HuBERT needs DTW, now confirmed on retrieval.
+2. **The raw distance inequality does NOT cleanly hold** (ratio 0.86–1.00): speaker voice is
+   a large, confounding component of the raw distances (fp_whole cosine is even slightly
+   *speaker-dominated*, 0.86, consistent with §17's speaker-entanglement). The
+   speaker-held-out **retrieval** is the clean signal, not the raw 4-way means.
+3. **fp carries word structure beyond a linear speaker component** (word probe > speaker
+   probe; 75% survives regression) — but **speaker-centering does not help** (Δ −0.003): the
+   speaker bias is non-additive, so simple mean-subtraction is insufficient.
+
+**Manuscript-safe claim:** *cross-speaker same-word retrieval from ordered acoustic sub-unit
+representations is above chance (CPC strongest), so word-associated structure is partly
+speaker-invariant; but it is not cleanly separable from speaker voice by raw distance or
+linear centering — the representations are word- AND speaker-coupled, with CPC the closest to
+a speaker-invariant acoustic-structure code.* "Universal" = cross-speaker word-associated
+acoustic structure, **not validated meaning** (semantic ceiling holds; tokens ≠ words);
+`semantic_validation` stays `none`. Animal analogue: same call-type across individuals <
+different call-type within an individual — deferred to a follow-on. (Consensus-template /
+adversarial-speaker removal deferred; CPC/HuBERT human-only, firewall unchanged.)
+
+---
+
+## 26. RookID cross-Caller same-call retrieval — the §25 animal analogue (2026-06-23)
+
+`scripts/rookid_cross_caller.py` — the cross-species mirror of §25: does CALL-TYPE structure
+survive across CALLERS (rooks)? Query = a call by rook A; gallery = calls by all *other*
+rooks (gallery excludes A); score same-call-type retrieval (top-1/5/MRR) + the 4-way distance
+ratio. Reuses `rookid_event_comment` (parse/build/kmeans) + the §25 four-way/retrieval logic,
+parameterized to caller = Source. n=2809 calls, 15 callers; whole-call fp (cosine) primary.
+
+| target (call-type label) | n | #labels | chance | fp top-1 | fp top-5 | fp MRR | ratio |
+|---|---|---|---|---|---|---|---|
+| activity (sing/call) | 2809 | 2 | 0.572 | 0.665 | 0.910 | 0.771 | 1.00 |
+| sing/non-sing | 2809 | 2 | 0.572 | 0.598 | 0.882 | 0.719 | 0.97 |
+| song_variant (sing-prefix) | 2066 | 7 | 0.330 | **0.403** | 0.677 | 0.514 | 0.99 |
+| Event (fine code) | 1677 | 30 | 0.240 | **0.160** | 0.393 | 0.273 | 0.98 |
+
+(sub-call-seq Levenshtein is within ±0.02 of fp on every cell — both reps agree.)
+
+### Cross-species verdict — animal calls are MORE caller-bound than human words are speaker-bound
+
+1. **Coarse category barely generalizes across rooks**: activity/sing cross-caller top-1
+   (0.60–0.67) is only ~9% over the 2-class chance (0.572) — the binary song-vs-call
+   distinction is weakly shared across individuals.
+2. **song_variant has moderate cross-caller signal** (0.403 vs 0.330, +22%) — some
+   within-song call-type structure is species-level.
+3. **Fine Event retrieval is BELOW chance (0.160 < 0.240)** — the specific call-type code is
+   *not* cross-caller-consistent; it is caller-bound. Retrieval "succeeds" by matching the
+   caller, not the call-type, when gallery excludes the caller.
+4. **ratio ≈ 0.97–1.00 everywhere** — the caller signature ≈ the call-type in raw distances,
+   exactly as §25 found for speaker/word.
+
+**The decisive cross-species contrast (§25 ↔ §26):** on LibriSpeech, cross-**speaker**
+same-**word** retrieval is 5–7× chance (CPC 0.105 vs 0.015) — word form *does* generalize
+across speakers. On RookID, cross-**caller** same-**call-type** retrieval is ≈ chance (and
+below it at fine Event) — rook call-types barely generalize across individuals. **Animal
+calls are far more individually stereotyped than human words are speaker-stereotyped.** This
+is the mechanistic root of the dominant individual signature seen throughout the animal track
+(bat Emitter V ≈ 0.45 ≫ Context V ≈ 0.16, §13; RookID Source fp-V 0.31 ≫ social_other 0.04,
+§23): the caller's vocal-tract signature is woven into the call form itself, so it dominates
+the raw geometry — the same non-additive entanglement §25's failed speaker-centering exposed
+in human speech, but stronger in animals because there is no CPC-style temporal-contrastive
+model to wash the caller out (no species CPC exists; the all-species fingerprint is
+physics-bound and therefore caller-bound).
+
+**Manuscript framing:** *cross-speaker word retrieval is well above chance, but cross-caller
+call-type retrieval is at-or-below chance — universal acoustic structure exists in human
+speech (weakly, speaker-coupled) and is largely absent at the individual level in corvid
+calls, which are caller-stereotyped. The pipeline captures caller + call-form, not a
+species-level call lexicon; semantic_validation stays `none`.* (all-species fp + raw NBD
+only; firewall-clean; retrieval is acoustic/structural association, not meaning.)
+
+---
+
+## 27. DTW-barycenter consensus word template — the §25 follow-on (negative) (2026-06-23)
+
+`scripts/ls_consensus_template.py` — §25 found linear speaker-centering **fails** (Δ −0.003),
+so the principled successor is a **sequence-space** average: a Petitjean DTW Barycenter
+Average (DBA; medoid-init, 5 iters) per word across speakers, then leave-one-instance-out
+nearest-template retrieval. If a cross-speaker consensus template beats raw cross-speaker
+NN, sequence-space averaging isolates a speaker-invariant word code that pointwise distances
+miss. Loads `outputs/ls_unified/recs.pkl` (no re-extraction); fp-window trajectories; 25
+frequent multi-speaker words (≥3 speakers), 250 eval instances.
+
+| method | top-1 | chance |
+|---|---|---|
+| raw cross-speaker NN (DTW on fp-trajectory) | **0.212** | 0.040 |
+| **DBA consensus template** | **0.172** | 0.040 |
+| Δ(template − NN) | **−0.040** | |
+
+### Verdict — no simple consensus "universal word" (honest negative)
+
+The DBA consensus template does **not** beat raw cross-speaker NN — it is slightly *worse*
+(0.172 < 0.212). Both are ~4–5× chance, so word structure is recoverable, but **averaging
+across speakers into a consensus template blurs rather than isolates the word**: because the
+speaker variance is entangled (non-additive) with the word content (§25: centering fails,
+ratio ≈1), the barycenter mixes speaker-conditional trajectories into a smeared mean that is
+*less* word-discriminative than a single same-word instance. This closes the §25 follow-on
+decisively: neither linear centering (additive) nor DTW-barycenter averaging (sequence-space)
+recovers a speaker-invariant word code from the physics-bound fingerprint — only a **learned
+non-linear disentanglement** (CPC's temporal-contrastive loss, §25's best representation)
+partially washes out the speaker.
+
+**Manuscript framing:** *there is no simple consensus "universal word" template derivable
+from the acoustic fingerprint by averaging — the speaker/word entanglement is non-additive
+and non-separable by sequence-space barycenters; a speaker-invariant acoustic-structure code
+requires a learned non-linear model (CPC), not an algebraic transform of the fingerprint.*
+"Universal" = cross-speaker word-associated structure, **not meaning** (semantic ceiling;
+tokens ≠ words); `semantic_validation` stays `none`. (fp human-only; same §25 word set; the
+NN baseline here uses DTW on the fp-trajectory, a richer metric than §25's whole-fp cosine,
+hence the higher absolute top-1 — the template-vs-NN Δ is the clean within-metric comparison.)
+
+### CPC-space replication — the representation matters (the sign flips)
+
+Re-running with `--rep cpc` (continuous 256-D CPC frame trajectories, §25's most
+speaker-invariant representation) on the same 25 words / 250 eval:
+
+| representation | raw cross-speaker NN | DBA consensus template | Δ (template − NN) |
+|---|---|---|---|
+| fingerprint (43-D windows, physics) | 0.212 | 0.172 | **−0.040** |
+| HuBERT (768-D frames, MLM) | 0.092 | 0.044 (≈chance) | **−0.048** |
+| AVES (768-D frames, multi-taxa SSL) | 0.096 | 0.028 (below chance) | **−0.068** |
+| **CPC (256-D frames, contrastive)** | **0.428** | **0.440** | **+0.012** |
+
+The sign **flips** across representations: in the physics-bound fingerprint, DBA averaging
+**smears** the word (§27); in HuBERT (MLM) and AVES (multi-taxa SSL, also MLM-style) it
+**fails outright** (template at/below chance, −0.048 / −0.068 — masked-prediction retains more
+speaker variance than contrastive); only in CPC's speaker-washed space does it **marginally help**
+(+0.012). This is the mechanism §25 predicted — **only the temporal-contrastive objective**
+discards enough slowly-varying speaker features for the residual variance to be additive enough
+that sequence-space averaging denoises the word trajectory rather than blurring it. **A
+speaker-invariant acoustic word template is extractable only after contrastive (not MLM, not
+multi-taxa SSL, not physics) non-linear disentanglement — never from the raw fingerprint by
+algebraic averaging.** AVES (the firewall-compliant, animal-translatable candidate) does NOT
+produce a usable human-speech word template — it is animal-trained, so its NN is weak (0.096)
+and its MLM-style averaging fails like HuBERT. (HuBERT/AVES-continuous NN ≈0.09 is itself weak
+under the DTW-cosine metric — consistent with §16/§25: MLM over-smooths and is metric-dependent.)
+
+**Honest magnitude.** The effect is real but **modest** (+0.012, paired over the same 250
+queries): CPC single-instance NN is already a strong cross-speaker code (0.428 = 10× chance),
+so the consensus template adds little headroom. The decisive result is the **sign-flip vs
+fingerprint (−0.040 → +0.012)**, not the absolute lift — it confirms the representation
+governs whether averaging isolates or destroys the word.
+
+**Firewall / animal translation.** CPC is human-trained and firewall-blocked on animals, so
+this speaker-invariant template is a human-speech result only. Combined with §26 (RookID
+cross-caller retrieval ≈ chance), it suggests a species-level call template may not even
+*exist* for corvids — their calls are too individually stereotyped for any averaging (in any
+representation the firewall permits) to recover a caller-invariant consensus. `semantic_validation`
+stays `none`.
+
+
+---
+
+## 28. RookID sing/song-bout DUSTED — within-song motif inventory (2026-06-23)
+
+DUSTED DTW discovery on the **sing subset** (1938 calls, 6 sources, 14 song variants)
+of the cached RookID recs (no re-extraction). The sing subset is where rook song is richest.
+
+| stat | value |
+|---|---|
+| #families | **1398** |
+| H(norm) | **0.93** (diverse, non-degenerate — unlike full-corpus §19) |
+| top-family-frac | **0.01** (no dominant) |
+| src_V (Source) | 0.042 |
+| var_V (song_variant) | 0.084 |
+| null ratio | 1.06× (p=0.111 — composition-driven) |
+| bootstrap Jaccard | 0.341 (moderate) |
+
+| representation | Source V | Source F1 | song_variant V | Event V |
+|---|---|---|---|---|
+| **whole fp (44-D)** | **0.294** | **0.826** | **0.230** | **0.243** |
+| HECB mean (44-D) | 0.302 | 0.822 | 0.206 | 0.215 |
+| motif hist (50-D) | 0.110 | 0.446 | 0.108 | 0.136 |
+
+**Findings:** (1) Rook song HAS diverse recurrent acoustic structure (1398 families, H=0.93,
+top=0.01 — a genuine positive discovery, closer to Bengalese §12 than marmoset §11).
+(2) But this structure is WEAKLY tied to Source or variant (both V < 0.1 at the DUSTED
+level). (3) The whole-call fingerprint is the strongest representation (Source F1=0.826) —
+consistent pipeline-wide: fingerprint for identity/form, motifs for discovery not
+discrimination. (4) song_variant is hard from any rep (F1 0.117–0.168) — rook song
+variants are acoustically subtle. `semantic_validation` stays `none`.
+
+---
+
+## 29. Cross-analysis: why recurrent acoustic terms are not decoded words (2026-06-23)
+
+Five summary cross-cuts across the validated results (§1–§28), assembled into the
+reviewer-proof package that directly supports the central firewall claim.
+
+### Cross-analysis 1 — cross-speaker word invariance vs cross-caller call-type invariance
+
+| Corpus | Unit tested | Identity held out | Retrieval target | Result | Interpretation |
+|---|---|---|---|---|---|
+| **LibriSpeech** | word | speaker | same word | **5–7× chance** (CPC 0.105, fp 0.083) | words generalize across speakers |
+| **RookID** | Event (fine code) | caller (Source) | same Event | **below chance** (0.160 vs 0.240) | fine call-types are caller-bound |
+| **RookID** | song_variant | caller | same variant | **moderate** (0.403 vs 0.330) | within-song structure partly shared |
+| Egyptian bat | context | emitter | same context | expected weak (§13 V≈0.16) | context not acoustic-invariant |
+| InfantMarmosetsVox | call-type | caller/twin | same call-type | **strong** (V=0.606, §18) | call-type is acoustic (form), not semantic |
+
+**The decisive contrast:** human **words** generalize across speakers (5–7× chance, §25);
+animal **call-types** barely generalize across callers (RookID fine Event *below* chance,
+§26). The call-type is caller-entangled; the word is speaker-invariant enough to recover.
+This is the firewall: animal acoustic structure is **not** a decoded lexicon.
+
+### Cross-analysis 2 — identity / call-form / context disentanglement across corpora
+
+| Dataset | Identity signal | Call/form signal | Context/social signal | Best representation |
+|---|---|---|---|---|
+| **Egyptian bat** | **high** (Emitter V≈0.45) | moderate (motifs graded) | **weak** (Context V≈0.16) | fingerprint; social needed for context (§9 D=4.3×) |
+| **RookID** | **high** (Source V=0.31) | sing/call strong (V=0.67) | **weak** (social_other V≈0.04) | whole-call fingerprint |
+| **InfantMarmosetsVox** | moderate (caller V present) | **strong** (call-type V=0.606) | no receiver-side context | fingerprint + HECB roles |
+| **Bengalese finch** | bird-constant (per-bird) | **strong** (GT syllable purity 0.79) | no semantic context | exact/fixed-cosine motif |
+| **Soundwel pig** | — (no individual ID) | call-type acoustic (0.41) | **valence not recoverable** (0.35≪chance) | fingerprint (ceiling) |
+| **LibriSpeech** | speaker entangled (§25 ratio≈1) | **word structure** (motifV 0.48, §21) | semantic word GT (controlled) | fingerprint/CPC |
+
+**The pattern:** animal acoustic structure carries *who called* and *what call form* more
+reliably than *why* (context) or *what it means*. Only LibriSpeech has a word-level signal
+that is (partially) speaker-invariant.
+
+### Cross-analysis 3 — word-likeness / lexicality stress test
+
+| Criterion | LibriSpeech | Bengalese | RookID | Bat | Marmoset |
+|---|---|---|---|---|---|
+| Cross-individual invariance | **high** (§25 5–7×) | per-bird (n/a) | **low** (§26 ≈chance) | low (§13 emitter-bound) | moderate (V=0.60 but within-session) |
+| Motif inventory diversity | high | **high** (§12 H=0.85) | **high** (§28 H=0.93) | moderate (§13 graded) | **sparse** (§11 degenerate) |
+| Label purity / enrichment | high (§21 motifV 0.48) | **high** (§12 0.79) | **low** (§28 V<0.1) | low (§13 V<0.17) | moderate (§18 V=0.61) |
+| Context-independence | **high** (word GT) | n/a | **low** (§23 social≈0) | **low** (§9 social needed) | n/a |
+| **Overall word-likeness** | **high** | moderate (acoustic, not semantic) | **low–moderate** | **low** | **low** |
+
+**Reviewer-safe sentence:** *The pipeline recovers structured recurrent acoustic terms, but
+animal corpora do not meet the cross-individual invariance and context-independence criteria
+expected of decoded lexical words. Bengalese finch comes closest on inventory diversity and
+label purity, but its syllables are acoustic categories, not semantic items (§12).*
+
+### Cross-analysis 4 — evidence-tier status (H0-CMC ladder)
+
+| Claim | Tier | Evidence | Status |
+|---|---|---|---|
+| Recurrent acoustic terms exist | **T0** | DUSTED discovery (§11–§13, §22, §28) | ✅ validated |
+| Individual identity recoverable | **T1** | bat Emitter V, RookID Source V, marmoset V (§13/§18/§23) | ✅ validated |
+| Call-form recoverable from acoustics | **T1** | marmoset V=0.61, Soundwel call-type 0.41 (§18/§24) | ✅ validated |
+| Context is socially grounded (not acoustic) | **T1→T2** | bat A–G D≈G=4.3×, survives shuffle + held-out (§9) | ✅ validated |
+| Valence/emotion not acoustic | **T1** | Soundwel within-call-type 0.35≪chance (§24) | ✅ validated (ceiling) |
+| Receiver detects motif structure | **T2** | — | ❌ **needs playback** |
+| Multimodal receiver convergence | **T3** | — | ❌ **needs playback** |
+| Causally supported functional signal | **T4** | — | ❌ **needs counterfactual playback** |
+| Ecologically validated function | **T5** | — | ❌ **needs field replication** |
+
+**The pipeline has exhausted T0–T1** (acoustic association + contextual prediction). T2–T4
+(receiver response + causal playback) is the biological next phase — it cannot be done
+computationally.
+
+### Cross-analysis 5 — playback-candidate prioritization
+
+| Dataset | Best playback candidate | Why | H0-CMC prediction |
+|---|---|---|---|
+| **RookID** | Source familiarity (known vs novel rook calls) + sing-motif prototypes | clean individual labels; tests caller-recognition (T2) | response follows caller identity, not motif structure |
+| **InfantMarmosetsVox** | onset/body/offset role-template calls (swapped vs natural) | mechanistic HECB role test (T2) | response disrupted by role-swap → roles are functional |
+| **Egyptian bat** | emitter-associated motifs vs context-mismatched exemplars | tests social grounding (T2); D=4.3× predicts social matters | response follows emitter, not context |
+| **Bengalese finch** | GT motif order-shuffled vs natural | positive control (T2); GT syllable purity 0.79 | response disrupted by order-shuffle → motif structure matters |
+
+**Counterfactual controls** (H0-CMC §4): natural / motif-preserved / order-shuffled /
+caller-swapped / context-mismatched / onset-body-offset-swapped / amplitude-duration-matched.

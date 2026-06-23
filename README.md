@@ -490,4 +490,39 @@ decisions.*
 - **Negative control** (ESC-50): domain gate refuses communication inference —
   detects structure but does not overclaim.
 
+## Session 2 — representation science + Track C freeze (§21–§29, 2026-06-23)
+
+- **Unified LS word-structure** (§21): same 600 words × 89 types for §14 + Stage C + D.
+  Fingerprint leads on all aggregate metrics; CPC best same-word NN; HuBERT metric-dependent.
+- **Cross-corpus DUSTED** (§22): uniform thr=0.15, HAC-corrected. Bengalese diverse / bat
+  graded-emitter / marmoset sparse. Difference is the repertoire, not the method.
+- **RookID Event/Comment** (§23): social_other V≈0.04 (≈chance) — partner rook not in the
+  call. Source V=0.31 (individual IS in the call).
+- **Soundwel valence ceiling** (§24): within-call-type fp→valence 0.350 ≪ chance → emotion
+  not linearly separable from call form. Bioacoustic semantic ceiling, proven.
+- **Speaker-invariant test** (§25): cross-speaker word retrieval 5–7× chance (CPC best);
+  ratio≈1 (speaker-dominated); centering fails; only CPC partially disentangles.
+- **Cross-caller animal analogue** (§26): RookID call-types barely generalize across callers
+  (fine Event below chance) — animal calls more individually stereotyped than human words.
+- **DBA consensus-template sweep** (§27): only CPC (+0.012) makes averaging help; fp (−0.040),
+  VTLN (−0.056), HuBERT (−0.048), AVES (−0.068) all fail. Non-additive entanglement.
+- **RookID sing-song-bout DUSTED** (§28): 1398 diverse motif families (H=0.93) but weakly
+  tied to Source/variant (V<0.1). Fingerprint, not motif histogram, is the identity tool.
+- **Cross-analysis** (§29): 5 summary tables — cross-speaker vs cross-caller, identity/form/
+  context disentanglement, word-likeness stress test, evidence-tier status (T0–T1 ✅, T2–T4
+  needs playback), playback-candidate prioritization.
+- **Bat Track C A–G** (§9 extended): D (acoustic+social) = 4.3× ≈ G (4.7×); behavior adds
+  +0.4× only. Social-shuffle collapses B→chance, D drops 1.1× (69% genuine). Emitter-held-out
+  preserves D at 4.1× (generalizes to unseen callers).
+- **H0-CMC framework**: 4-stage evidence ladder (L0 acoustic → L3 causal), 6 evidence tiers,
+  explicit-vs-implicit model test, social axis separate from context. Pipeline at T0–T1;
+  T2–T4 = playback phase.
+- **CPC policy**: animal pipeline = fingerprint + HECB + DUSTED + Track C; CPC =
+  human-validation/speaker-invariant only.
+
+New scripts: `ls_unified_rerun`, `ls_speaker_invariant`, `ls_consensus_template`,
+`ls_aves_extract`, `ls_vtln_template`, `rookid_event_comment`, `rookid_cross_caller`,
+`soundwel_trackc`, `bat_trackc_ablation` (A–G + controls), `bat_trackc_cca`,
+`marmoset_clusterfn_compare`. 222 tests, ruff-clean.
+
 # Copyright (c) 2025 Sheel Morjaria. All rights reserved.
