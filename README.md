@@ -525,4 +525,31 @@ New scripts: `ls_unified_rerun`, `ls_speaker_invariant`, `ls_consensus_template`
 `soundwel_trackc`, `bat_trackc_ablation` (A–G + controls), `bat_trackc_cca`,
 `marmoset_clusterfn_compare`. 222 tests, ruff-clean.
 
+## Session 3: Architecture v1.0 — multi-paradigm validation + Track C (2026-06-23)
+
+### Architecture v1.0 freeze (12 steps, all complete)
+Router audit + regime pre-router (`route_by_continuous`), AblationResult, AbstentionReason
+(first-class abstention trail), HECB parent gate verified, whole-call-primary invariant
+(§30), `trace["router_audit"]`.
+
+### Multi-paradigm structural validation (§33–§34)
+DUSTED corroborated by 4 independent mathematical paradigms:
+- **PST + Graph** (Bengalese): 247 contexts, 5 modular communities — discrete syntax confirmed.
+- **RQA** (bat): LAM context-dependent (**p=0.016**) — graded dynamics DUSTED couldn't see.
+- **Matrix Profile** (marmoset): 87.5% stutter-dominant, unimodal — degenerate confirmed token-free.
+- **Transition Network** (LibriSpeech): 639 nodes/19 communities — scales to human diversity.
+
+### H0-CMC evidence ladder + Track C
+- **Evidence tiers** (Step 5): T0 acoustic → T5 field; maps to `semantic_validation`.
+- **Explicit-implicit test** (Step 7): A vs D vs G → CommunicationMode + social axis.
+- **DSP Audio Splicer** (Step 6): 5-condition counterfactual WAVs (100 bat stimuli preflighted).
+- **Negative controls** (§35): synthetic chirps 1 motif vs natural's 33 → **33× specificity**.
+
+New modules: `diagnostics/{h0_cmc, repertoire_taxonomy, structural_alternatives,
+channel_audit, temporal_ecology}`, `experiments/playback_design/audio_splicer.py`.
+New scripts: `boundary_quality_sweep`, `compare_structure_methods`, `bat_rqa_by_context`,
+`marmoset_matrix_profile_sweep`, `bengalese_network_topology`, `repertoire_taxonomy`,
+`identity_form_context_disentanglement`, `playback_splice`, `extended_negative_controls`,
+`stereotypy_vs_template`, `hecb_calibrator_factorial`, `hecb_cpc_comparison`. 247 tests.
+
 # Copyright (c) 2025 Sheel Morjaria. All rights reserved.

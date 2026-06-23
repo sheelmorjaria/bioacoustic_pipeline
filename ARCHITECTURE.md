@@ -268,3 +268,56 @@ signature (bat Emitter V, RookID Source V).
 Animal pipeline = **fingerprint + HECB + DUSTED + Track C** (no species CPC).
 CPC = **human-validation / speaker-invariant only**. Optional animal-CPC ablation on one
 dataset only.
+
+## Architecture v1.0 — Complete (2026-06-23)
+
+The full 12-step roadmap is implemented, tested (247 tests), and committed. Here is the
+complete module map:
+
+### Core pipeline (unchanged)
+- `orchestration.run_pipeline()` → audio → segment → tokenize → diagnose → verdict
+- `verdict_engine/` → schema-valid 6-axis report (`build_report` self-validates)
+- `embeddings/firewall.py` → ethological firewall (provenance-registered models)
+
+### Segmentation router (the centrepiece — v1.0 frozen)
+- `configs/segmentation_router.yaml` — 3 regimes + domain gate + router_audit + regime_classifier
+- `orchestration._router_audit()` → `trace["router_audit"]` (regime, choice, alternative, failure mode)
+- `diagnostics/repertoire_taxonomy/classifier.py` → `classify_repertoire()` (5 types) +
+  `route_by_continuous()` (token-free pre-router: MP recurrence + RQA LAM → skip/rqa/full)
+- `segmentation/hierarchical.py` → `hecb_decode(min_parent_confidence=)` — HECB parent gate
+
+### Structural discovery (multi-paradigm, v1.0 frozen)
+- `diagnostics/motif_miner/subsequence_motifs.py` → DUSTED (DTW recurrent terms)
+- `diagnostics/structural_alternatives/` → RQA (pure numpy) + Matrix Profile (stumpy) +
+  PST (pure) + Transition Network (networkx) — 4 paradigms corroborate DUSTED
+- `diagnostics/repertoire_taxonomy/` → RepertoireProfile → RepertoireType classification
+
+### H0-CMC evidence ladder
+- `diagnostics/h0_cmc/evidence_tiers.py` → EvidenceTier (T0–T5) + H0CMCEvidence + classify_tier()
+- `diagnostics/h0_cmc/explicit_implicit_test.py` → CommunicationMode (A vs D vs G)
+- `diagnostics/h0_cmc/social_axis.py` → SocialContext + GenericContext + split_context()
+
+### Track C playback
+- `experiments/playback_design/audio_splicer.py` → 5-condition counterfactual WAVs
+- `experiments/playback_design/naturalness_preflight.py` → acoustic validity screening
+
+### Hardening
+- `verdict_engine/evidence_profile.py` → AbstentionReason + abstentions trail (first-class)
+- `diagnostics/channel_audit.py` → SNR/reverb/spectral QA
+- `diagnostics/temporal_ecology.py` → TemporalContext + timeline extractor
+- `representation/vocalisation.py` → AblationResult + summarize_ablation (whole-call-primary)
+
+### The three validated invariants
+1. **Router is the centrepiece** — regime-specific segmentation, audited per run.
+2. **HECB is an annotator** — parent-quality-gated; whole-call primary confirmed (§30).
+3. **Whole-call primary** — HARD invariant; pooled/sequence never beat whole on call-type V.
+4. **Three representational jobs** — identity=fp; structure=HECB+DUSTED; human=CPC only.
+
+### The three-bucket thesis (the paper's mature claim)
+Every finding lands in exactly one:
+- **What acoustics encode**: individual identity (bat Emitter V 0.446, rook Source V 0.31) +
+  call/event form (marmoset V 0.599, meerkat V 0.521, Bengalese purity 0.788).
+- **What acoustics do NOT encode**: context (bat needs social, §9), social partner (~chance),
+  valence (Soundwel within-call-type ≈ chance, §24), word identity (token↔word 0.29, §29).
+- **What needs social/biological validation**: bat context (D/A=1.59, socially grounded);
+  all meaning (semantic_validation: none until T3+ biology).
