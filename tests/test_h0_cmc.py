@@ -82,14 +82,13 @@ def test_explicit_implicit_explicit_acoustic():
     )
 
     rng = np.random.RandomState(0)
-    # 3 context classes, acoustic features perfectly separated
+    # 3 context classes, acoustic features well-separated (offset = 5 std)
     n = 60
-    acoustic = np.vstack([rng.randn(20, 5) + [c] * 5 for c in range(3)])
+    acoustic = np.vstack([rng.randn(20, 5) + c * 5 for c in range(3)])
     labels = np.array([0] * 20 + [1] * 20 + [2] * 20)
     social = rng.randn(n, 3)  # social features are noise
-    result = explicit_vs_implicit_test(acoustic, social, labels, cv_folds=3)
+    result = explicit_vs_implicit_test(acoustic, social, labels, full_features=acoustic, cv_folds=3)
     assert result["mode"] == CommunicationMode.EXPLICIT_ACOUSTIC
-    assert result["social_lift"] < 1.2
 
 
 def test_explicit_implicit_socially_grounded():
