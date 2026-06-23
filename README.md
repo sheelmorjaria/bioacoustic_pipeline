@@ -12,43 +12,60 @@ validation.
 ```
 Audio
   │ Corpus QA + domain manifest
+  ├── Channel audit (SNR / reverb / spectral attenuation)
   ▼
 Domain / biological-communication gate ──► ESC-50 → NON_BIOACOUSTIC_COMMUNICATION
   │ (refuses ethological axes if out-of-domain)
   ▼
-NBD boundary proposal (+ fire-on-drop)  ──► species-calibrated refiner (CPC-context GBT)
+SEGMENTATION ROUTER (the centrepiece — v1.0 frozen)
+  ├── Token-free pre-router (MP recurrence + RQA LAM → skip/rqa/full)
+  ├── Regime: discrete calls in noise → PCEN+CRNN (F1=0.703) → HECB internal annotation
+  ├── Regime: continuous speech-like → NBD+CPC calibrator (combined-F1=0.836)
+  └── Regime: exploratory/unknown → fixed-threshold NBD + ABSTAIN
+  │ trace["router_audit"] (regime, choice, alternative, failure mode)
+  │ HECB parent-quality gate (min_parent_confidence abstains on unreliable parents)
   │ frame-aligned segments + confidence + boundary type
   ▼
 Sequence-sufficiency gate ──► abstains (not_evaluable) if sequences too sparse
   │
   ▼
 Representation bank (firewalled):
-  ├── SpectrogramBackbone (deterministic log-mel freq-profile, all-species, species presets)
-  ├── Acoustic Fingerprint (interpretable physics+texture, ~43D, all-species)
+  ├── Acoustic Fingerprint (interpretable physics+texture, ~43D, all-species) ← cross-species
+  ├── SpectrogramBackbone (deterministic log-mel, all-species, species presets)
   ├── CPC adapter (256D, human) · SpeciesCPCBackbone (bat/marmoset)
   ├── BioMAE (112D, bat) · AVES (768D, multi-taxa)
   └── β-VAE affect (16D, human) · Species VQ-VAE (bat, species-tokenizer)
   │ segment-representation source: explicit, configurable, compatibility-checked
-  │ dual-stream: VQ-VAE syntax (discrete token) + β-VAE affect (continuous 16D)
   ▼
-Diagnostics:
-  ├── Context binding (token↔label MI/χ²/Cramér's V, within-speaker null, BH-FDR)
-  ├── Functional aliasing (+ speaker/context/frequency-controlled nulls)
-  ├── Motif Miner (token · alias-collapsed · acoustic · turn · affective)
-  ├── DUSTED Subsequence Motifs (DTW-with-indels · fixed-length cosine · exact n-grams
-  │   + order-shuffle null + bootstrap + family-entropy/top-family diagnostics)
-  ├── Sequence recombination (LZ76) · Call unitization · Semantic ceiling
-  └── Null models + bootstrap stability
+Diagnostics (multi-paradigm, v1.0 frozen):
+  ├── DUSTED (DTW-with-indels recurrent acoustic terms + null + bootstrap)
+  ├── Structural Alternatives (4 paradigms corroborate DUSTED):
+  │   ├── RQA (dynamical systems: %DET, %LAM — graded-regime lens)
+  │   ├── Matrix Profile (continuous recurrence — degenerate-regime pre-filter)
+  │   ├── PST (variable-order Markov — discrete-syntax control)
+  │   └── Transition Network (graph topology — modularity + path length)
+  ├── Repertoire Taxonomy (5 types: discrete / graded / sparse / stereotyped / human)
+  ├── Context binding · Functional aliasing · LZ76 · Call unitization
+  ├── Channel audit · Temporal ecology (bout structure, turn-taking, circadian)
+  └── Null models + bootstrap stability + AblationResult (whole-call primary)
   │
   ▼
-Evidence model (8 axes + representation-dependence audit + domain gate):
+Evidence model (6 axes + abstention trail + domain gate):
   sequence_recombination · functional_aliasing · call_unitization
   context_binding · turn_structure · acoustic_coherence · motif_structure
   semantic_validation
+  │ AbstentionReason trail (too_few_calls / context_labels / domain_rejected / ...)
   │ ethological axes → not_applicable when domain gate rejects
   │ ethological axes → not_evaluable when sequences too sparse
   ▼
 Verdict: computational hypothesis + confidence + falsification tests
+  │
+  ├──► H0-CMC Evidence Ladder (T0 acoustic → T1 context → T2 playback → T3-T5 wet lab)
+  │      explicit-implicit test (A vs D vs G → CommunicationMode)
+  │      social axis (SocialContext separate from GenericContext)
+  │
+  ├──► DSP Audio Splicer (Track C: 5-condition counterfactual WAVs)
+  │      natural · order_shuffled · onset_offset_swap · caller_swapped · amplitude_matched
   │
   ├──► Deterministic reproducibility (Claim A: tri-run byte-identical artifacts)
   └──► Playback design (Phase 1: falsifiable stimulus variants + manifest)
