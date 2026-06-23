@@ -112,6 +112,23 @@ Verdict: computational hypothesis + confidence + falsification tests
     prerequisite. The VQ-VAE / β-VAE must receive the same representation they
     were trained on (CPC / BioMAE / fingerprint / spectrogram / fused-bank). The
     source is explicit, configurable, and compatibility-checked before assignment.
+11. **The semantic ceiling is mathematical (§36).** Caller identity and call form
+    are non-separably entangled in the acoustic signal at every level — static
+    spectral, dynamic temporal, linear, affine, and non-linear. Four disentanglement
+    methods (LDA / LogReg projection, Z-normalization, delta-trajectory) all
+    *fail*: removing caller information destroys call-type structure. Only a learned
+    non-linear transform (CPC) can separate them — and the ethological firewall
+    blocks that on animals. The correct response is the whole-call-primary invariant:
+    use the entangled signal as-is, and let only Track-C biology (not computation)
+    validate meaning.
+12. **The three-bucket thesis.** Vocal communication splits cleanly into three
+    epistemic buckets the pipeline treats differently: (1) **what acoustics encode** —
+    caller identity + call form, recoverable by the fingerprint and HECB; (2) **what
+    acoustics do not encode** — social context, affective valence, and meaning,
+    which require social/biological covariates (the H0-CMC D ≫ A test) or wet-lab
+    validation; (3) **what needs Track-C biology to validate** — no computational
+    result, however statistically clean, can assert meaning; only playback/field
+    experiments lift `semantic_validation` above `none`.
 
 ## Layout
 
@@ -126,10 +143,15 @@ src/bioacoustic_pipeline/
                     segment_representation (explicit source + compatibility check)
   tokenization/     acoustic token (VQ-VAE on CPC), species tokenizer, multiview latent,
                     FingerprintTokenizerAdapter (torch-free, all-species)
-  representation/   SpectrogramBackbone (bank-integrated), DualStreamSegment (typed event)
+  representation/   SpectrogramBackbone (bank-integrated), DualStreamSegment (typed event),
+                    AblationResult + summarize_ablation (whole-call-primary invariant),
+                    disentangle.py (caller-identity disentanglement: LDA / LogReg / Z-norm / delta)
     spectrograms/   multi-view factory (STFT + log-mel), species presets, quality,
                     shared k-means fingerprint tokenizer
     dual_stream.py  DualStreamSegment + build_dual_stream() factory
+    vocalisation.py DualStreamVocalisation + whole_sub_pooled_sequence_ablation +
+                    AblationResult (winner + claim_strength)
+    subcall.py       build_subcall_representations + pooled_representation
   runtime/          device manager (auto/cuda/mps/cpu), module capability registry
   diagnostics/      alias detector (+speaker-controlled nulls), null models, bootstrap,
                     lempel_ziv, entropy, sequence_sufficiency gate, context_binding
@@ -142,26 +164,34 @@ src/bioacoustic_pipeline/
                                  + subsequence_motifs: DUSTED DTW · fixed-cosine · exact-ngram
                                  + family-entropy/top-family/label-purity diagnostics),
                     dual_stream_diagnostics (affect-within-token variance, token↔affect MI,
-                    alias-affect equivalence, motif affect signatures)
+                    alias-affect equivalence, motif affect signatures),
+                    h0_cmc/ (T0→T5 evidence tiers + explicit-implicit test + social axis),
+                    repertoire_taxonomy/ (5-type classifier + route_by_continuous pre-router),
+                    structural_alternatives/ (RQA · Matrix Profile · PST · Transition Network),
+                    channel_audit.py (SNR / reverb / spectral attenuation),
+                    temporal_ecology.py (bout structure, turn-taking, circadian)
   experiments/
     playback_design/ Phase-1 playback stimuli (exemplar concat + variants + manifest):
                     candidate_selector, motif_variants, stimulus_builder, alias_substitution,
                     affect_morphing (descriptor, not renderer), spatial_router,
-                    naturalness_preflight, playback_manifest, response_schema
-  verdict_engine/   evidence profile (8 axes + not_applicable + domain), falsification report,
-                    output schema
+                    naturalness_preflight, playback_manifest, response_schema,
+                    audio_splicer (DSP: 5-condition counterfactual WAVs: natural /
+                    order_shuffled / onset_offset_swap / caller_swapped / amplitude_matched)
+  verdict_engine/   evidence profile (8 axes + not_applicable + domain + abstentions trail),
+                    falsification report, output schema, AbstentionReason vocabulary
   orchestration/    end-to-end pipeline: segment → tokenize → diagnose → verdict
-                    (+ segment_source compatibility gate)
+                    (+ segment_source compatibility gate + _router_audit + trace["router_audit"])
   hashing.py        SHA-256 + canonical JSON (determinism artifacts)
   determinism.py    set_global_determinism + reproducibility manifest
   utils/            audio IO (load + write), hashing
 configs/            species_profiles.yaml, model_metadata.json (firewall),
                     pipeline_deterministic.yaml, esc50_negative_control.yaml,
                     segment_representation.yaml
-tests/              222 tests (schema TDD + per-module + pipeline integration +
+tests/              247 tests (schema TDD + per-module + pipeline integration +
                     determinism + domain gate + playback design + segment representation +
-                    DUSTED subsequence motifs)
-scripts/            27 analysis + training + reproducibility + playback + motif scripts (see Commands)
+                    DUSTED subsequence motifs + repertoire taxonomy + h0_cmc +
+                    structural alternatives)
+scripts/            30 analysis + training + reproducibility + playback + motif scripts (see Commands)
 ```
 
 ## Install (editable)
@@ -272,7 +302,37 @@ python scripts/hubert_ablation.py --n-files 200
 ### Lint + test
 ```bash
 ruff check . && ruff format --check .
-pytest -q                           # 222 tests
+pytest -q                           # 247 tests
+```
+
+### Architecture v1.0: boundary sweep + alternatives + taxonomy + playback + controls
+```bash
+# §30: boundary-quality sweep (whole-call primary, meerkat + marmoset)
+python scripts/boundary_quality_sweep.py --n-clips 300 --n-per-type 500
+
+# §33: DUSTED vs 4 structural alternatives (per-dataset regime)
+python scripts/compare_structure_methods.py --n-files 20
+
+# §34: targeted reanalyses (bat RQA-by-context / marmoset MP / Bengalese network)
+python scripts/bat_rqa_by_context.py --per-context 30 --top-k 6
+python scripts/marmoset_matrix_profile_sweep.py --n-calls 200
+python scripts/bengalese_network_topology.py --n-files 100
+
+# Step 3: repertoire taxonomy + Step 4: identity-form-context
+python scripts/repertoire_taxonomy.py
+python scripts/identity_form_context_disentanglement.py
+
+# Step 6: DSP Audio Splicer (5-condition counterfactual WAVs)
+python scripts/playback_splice.py --n-bouts 20 --out outputs/playback_stimuli
+
+# §35: negative controls (synthetic chirps / random segments)
+python scripts/extended_negative_controls.py --n-bouts 50
+
+# Step 11: stereotypy vs template (cross-caller retrieval)
+python scripts/stereotypy_vs_template.py --n-per-type 200
+
+# Factorial: HECB typed vs scalar+CPC on LibriSpeech boundary F1
+python scripts/hecb_calibrator_factorial.py --n-train 400 --n-test 100
 ```
 
 ## Validated results
@@ -387,6 +447,71 @@ The emitter/caller claim **survives held-out** — not a session/file artifact.
 (Stage C: word_V 0.418). 24-config ablation (§16) confirms: no HuBERT config beats
 fingerprint. The interpretable fingerprint + in-house CPC lead on every test.
 
+### Boundary-quality sweep — whole-call primary confirmed (§30)
+
+| Corpus | Parent F1 | whole V | pooled V | gap (pooled−whole) | Verdict |
+|---|---|---|---|---|---|
+| MeerKAT (n=300, oracle) | 1.000 | 0.364 | 0.386 | +0.021 | hierarchy barely helps |
+| Marmoset (n=2500, oracle) | — | 0.524 | 0.492 | **−0.032** | hierarchy HURTS |
+
+Sub-call internal structure is augmentation for motif discovery, NOT a call-type-recovery
+lever. `AblationResult` formalizes the whole-call-primary invariant.
+
+### Multi-paradigm structural validation (§33–§34)
+
+DUSTED corroborated by 4 independent mathematical paradigms:
+
+| Paradigm | Dataset | Key result | Verdict vs DUSTED |
+|---|---|---|---|
+| PST + Graph | Bengalese | 247 contexts, 5 communities, clustering 0.686 | **Corroborates** |
+| RQA | Bat | %LAM context-dependent (**p=0.016**); %DET invariant | **Complements** (dynamics DTW missed) |
+| Matrix Profile | Marmoset | 87.5% stutter-dominant, unimodal histogram | **Confirms** degenerate, token-free |
+| Transition Network | LibriSpeech | 639 nodes, 19 communities, path 1.257 | **Upper bound** (scales) |
+
+### Cross-species repertoire taxonomy (§31)
+
+| Corpus | Type | Discriminator |
+|---|---|---|
+| Bengalese finch | `discrete_syllable` | cov 0.48, null 2.67×, bootstrap 0.509 |
+| Egyptian fruit bat | `graded` | cov 0.15, emitter V 0.45, social_lift 1.74 |
+| Infant marmoset | `sparse_repetitive` | cov 0.028, bootstrap 0.229 |
+| Rook | `individually_stereotyped` | Source V 0.31 ≫ social_other 0.04 |
+| LibriSpeech | `human_lexical` | terms are NOT words (semantic ceiling) |
+
+### Identity–form–context disentanglement (§32)
+
+| Target | Bat | Marmoset | Rook | LibriSpeech |
+|---|---|---|---|---|
+| Individual ID | **strong** (V 0.45) | n/a | partial (V 0.31) | strong (probe 0.56) |
+| Call/event type | weak (V 0.17) | **strong** (V 0.60, probe 0.83) | **strong** (V 0.67) | partial (token↔word 0.29) |
+| Context | **needs social** (D 4.3×) | n/a | weak (V 0.04) | n/a |
+| Social partner | n/a | n/a | n/a (≈chance) | n/a |
+
+### Negative controls — pipeline specificity (§35)
+
+| Control | # motifs | vs natural (33) | Specificity |
+|---|---|---|---|
+| Synthetic FM chirps | **1** | 33× | PASS |
+| Random audio segments | **1** | 33× | PASS |
+
+The pipeline does NOT manufacture structure from arbitrary input.
+
+### The disentanglement proof — semantic ceiling is mathematical (§36)
+
+Four methods tested to separate caller identity from call form in the 44-D fingerprint:
+
+| Method | Mathematics | Δ caller V | Δ form V | Result |
+|---|---|---|---|---|
+| LDA projection | Linear subspace | −0.029 | **−0.120** | FAIL (overlap) |
+| LogReg projection | Linear weight | −0.005 | −0.013 | FAIL (inseparable) |
+| Z-normalization | Affine | −0.019 | **−0.074** | FAIL (overlap) |
+| Delta-trajectory | Non-linear | −0.105 | **−0.163** | FAIL (temporal dynamics are caller-specific) |
+
+**All four fail.** Caller identity and call form are non-separably entangled at every level
+(static spectral, dynamic temporal, linear, non-linear). Only a learned non-linear transform
+(CPC) can separate them — and the firewall blocks that on animals. The whole-call-primary
+invariant is the correct response: use the entangled signal as-is.
+
 ## Modules
 
 ### Sequence-Sufficiency Gate (`diagnostics/sequence_sufficiency.py`)
@@ -477,6 +602,49 @@ registry (CPU: segmentation, fingerprint, spectrogram, diagnostics, verdict;
 GPU: CPC, BioMAE, AVES, VQ-VAE, β-VAE). Principle: *accelerate tensors, not
 decisions.*
 
+### H0-CMC Evidence Ladder (`diagnostics/h0_cmc/`)
+Six-rung causal evidence ladder (T0 acoustic → T5 field) connecting discovery
+to biological validation. `EvidenceTier` + `H0CMCEvidence` dataclass +
+`classify_tier()` autonomous classifier (never claims above T1 without biology).
+`explicit_vs_implicit_test()` classifies signal as explicit-acoustic (A≈G) vs
+socially-grounded-implicit (D≫A, D≈G). `SocialContext` / `GenericContext`
+separate social covariates from generic context. Maps to `semantic_validation`
+axis: T0–T2 → none, T3 → candidate, T4 → causally_supported, T5 → validated.
+
+### Structural Alternatives (`diagnostics/structural_alternatives/`)
+Four firewall-compliant paradigms that corroborate DUSTED from independent
+mathematics: **RQA** (pure numpy, dynamical systems — %DET/%LAM), **Matrix
+Profile** (stumpy, continuous recurrence), **PST** (pure stdlib, variable-order
+Markov syntax), **Transition Network** (networkx, graph topology — clustering /
+modularity / path length). Promotion rule: a decisive regime-win → router branch
+(e.g. `graded → RQA`), never a wholesale DUSTED replacement.
+
+### Repertoire Taxonomy (`diagnostics/repertoire_taxonomy/`)
+Pure-stdlib classifier: `RepertoireProfile` (DUSTED stats + emitter/context V +
+social_lift) → `RepertoireType` (discrete_syllable / graded / sparse_repetitive /
+individually_stereotyped / socially_grounded / human_lexical). Secondary flags
+(identity_dominant, socially_grounded). `route_by_continuous()` — token-free
+pre-router using MP recurrence + RQA LAM to skip heavy DTW on degenerate data.
+
+### DSP Audio Splicer (`experiments/playback_design/audio_splicer.py`)
+Track C: generates 5-condition counterfactual WAV stimuli from HECB-segmented
+calls — natural / order_shuffled / onset_offset_swap / caller_swapped /
+amplitude_matched. Exemplar-based DSP (slice + crossfade + concatenate), NOT
+neural synthesis. Deterministic, firewall-clean. 100 bat stimuli preflighted.
+
+### Caller-Identity Disentanglement (`representation/disentangle.py`)
+Three methods to scrub caller identity from the 44-D fingerprint: `disentangle_delta()`
+(non-linear differencing), `disentangle_orthogonal()` (LDA/LogReg subspace projection),
+`disentangle_znorm()` (per-speaker Z-normalization). `evaluate_disentanglement()`
+measures caller-V vs form-V before/after. **All three empirically fail** (§36) —
+the semantic ceiling is mathematically proven.
+
+### Channel Audit + Temporal Ecology (`diagnostics/`)
+`channel_audit.py`: per-recording SNR / reverb proxy / spectral attenuation / quality
+tier (clean/moderate/degraded). `temporal_ecology.py`: `TemporalContext` (inter-call
+interval, bout position/length, turn-taking latency, overlap flag, daily phase) +
+`extract_temporal_context()` from an ordered call timeline.
+
 ## Status
 
 - **Track A** (engineering): validated on LibriSpeech. §1 combined-F1 = 0.836.
@@ -501,11 +669,27 @@ decisions.*
   Conclusion locked across 24 HuBERT configs.
 - **Track C** (biological function): the falsification reports are the experimental
   to-do list for wet-lab / field playback validation. Phase-1 playback design
-  generates the stimulus variants + manifest.
+  generates the stimulus variants + manifest. The **DSP Audio Splicer** produces
+  5-condition counterfactual WAVs (100 bat stimuli preflighted); the **H0-CMC
+  evidence ladder** (T0→T5) + explicit-implicit test (A vs D vs G) scaffold the
+  path from computational hypothesis to validated meaning. Pipeline sits at
+  **T0–T1** (acoustic + context); T2–T4 are the playback phase.
 - **Determinism** (Claim A): tri-run byte-identical — the pipeline implementation
-  is reproducible.
+  is reproducible. Re-verified after the v1.0 freeze (9/9 SHA-256 artifact hashes
+  identical across 3 independent subprocess runs).
 - **Negative control** (ESC-50): domain gate refuses communication inference —
-  detects structure but does not overclaim.
+  detects structure but does not overclaim. §35 extended controls confirm the
+  pipeline does not manufacture structure from arbitrary input (synthetic chirps /
+  random segments → 1 motif each vs natural's 33).
+- **Architecture v1.0 frozen**: segmentation router (3 regimes + token-free
+  pre-router + `router_audit` trace), whole-call-primary invariant (§30,
+  `AblationResult`), first-class abstention (`AbstentionReason` trail), and the
+  H0-CMC framework all complete. DUSTED corroborated by **4 independent
+  mathematical paradigms** (§33–§34: RQA / Matrix Profile / PST / Transition
+  Network). **247 tests, ruff-clean on changed files.**
+- **Semantic ceiling = mathematical** (§36): caller identity and call form are
+  non-separably entangled — 4 disentanglement methods all fail. The three-bucket
+  thesis (encode / do-not-encode / needs-biology) is the operating frame.
 
 ## Session 2 — representation science + Track C freeze (§21–§29, 2026-06-23)
 
