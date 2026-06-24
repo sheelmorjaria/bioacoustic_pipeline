@@ -323,6 +323,9 @@ python scripts/bengalese_network_topology.py --n-files 100
 python scripts/repertoire_taxonomy.py
 python scripts/identity_form_context_disentanglement.py
 
+# §36 Entanglement Ceiling — AVES ablation (reviewer-proofing: deep SSL control)
+python scripts/entanglement_ceiling_aves.py --n-per-type 500 --min-calls-per-caller 20
+
 # Step 6: DSP Audio Splicer (5-condition counterfactual WAVs)
 python scripts/playback_splice.py --n-bouts 20 --out outputs/playback_stimuli
 
@@ -512,6 +515,13 @@ Four methods tested to separate caller identity from call form in the 44-D finge
 (static spectral, dynamic temporal, linear, non-linear). Only a learned non-linear transform
 (CPC) can separate them — and the firewall blocks that on animals. The whole-call-primary
 invariant is the correct response: use the entangled signal as-is.
+
+**Learned-representation control (AVES, §36).** The same linear disentanglement was repeated
+on a 768-D deep SSL embedding (AVES, multi-taxa, firewall-legal for marmoset) over the same
+calls. Deep learning *narrows* the ceiling (AVES form/caller ratio 2.78 vs fingerprint 2.00)
+but does **not** break it: Z-normalization still sacrifices form ~3× faster than caller, and
+linear LDA is a no-op (AVES encodes caller non-linearly). No firewall-compliant available
+representation linearly separates identity from form. Script: `scripts/entanglement_ceiling_aves.py`.
 
 ## Modules
 

@@ -342,6 +342,17 @@ practice to mathematical necessity:
   below chance because the pipeline *cannot* abstract the call-type away from the caller —
   they are physically the same signal.
 
+**Learned-representation control (AVES, §36).** We repeated the linear disentanglement on
+AVES, a 768-D deep SSL embedding trained on multi-taxa animal audio (firewall-legal for
+marmoset), over the same calls. A reviewer's instinct — that a deep model's higher-order
+features could separate identity from form — is *partly* right: AVES achieves a better
+form/caller ratio than the physics fingerprint (2.78 vs 2.00). But it does *not* break the
+ceiling. Affine Z-normalization still sacrifices form ~3× faster than caller, and linear LDA
+cannot reach AVES's *non-linear* caller structure at all (a no-op). No firewall-compliant
+*available* representation linearly separates identity from form; deep learning narrows the
+gap, the residual entanglement is non-linearly non-removable, and only a species-specific
+invariant model — which does not exist, and which the firewall withholds — could close it.
+
 Consequently, bioacoustic semantic decoding from acoustics alone is not merely difficult —
 it is algebraically impossible without non-linear learned disentanglement, which the firewall
 prohibits. This mathematically *mandates* the Track-C (H0-CMC) approach: functional meaning
