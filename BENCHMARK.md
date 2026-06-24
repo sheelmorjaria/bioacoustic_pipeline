@@ -1825,11 +1825,35 @@ hypothesis: *"if AB is compositional, receiver response to natural_AB > max(isol
 isolated_B) and differs from reversed_BA."* Exemplar-based DSP (slice + crossfade), not neural
 synthesis.
 
+**Positive control — LibriSpeech proves the pipeline *can* find compositional structure.**
+The bat §37 negative is only meaningful if the pipeline is demonstrably sensitive to
+compositionality where it exists. It is: on LibriSpeech (§14/§16/§21), sub-word units
+assemble into word-consistent structure — the fingerprint's discovered recurrent terms
+associate with word identity at **motif→word V = 0.481** (§14) and word-cluster **V = 0.517**
+(§16), with a within/across edit-distance ratio of 0.964. I.e. the pipeline recovers
+sequence→identity composition in human speech but finds *none* in bat bouts — the contrast
+that makes the bat negative informative rather than a methodological null. (Caveat: this is
+**structural** composition — sub-word units → word *form*. Word identity ≠ meaning; the
+semantic ceiling forbids asserting meaning even for words. So LibriSpeech is a positive
+control for structural-composition *sensitivity*, not for semantic compositionality.)
+
 **Verdict (ceiling-respecting).** The bat repertoire exhibits strong *structural prerequisites*
 for compositionality — non-random syntax, positional specialists, significant bigram↔Context
 association — but there is **no cross-bout evidence that any AB combination is distributionally
-more than the sum of its parts.** This is exactly where the Semantic Ceiling draws the line:
-the pipeline found prerequisites (T0) and built the stimuli (T2); whether any sequence is
+more than the sum of its parts.** By contrast, the pipeline recovers compositional structure
+on LibriSpeech (V ≈ 0.48–0.52), so the bat negative is a property of the bat repertoire, not a
+blindness of the method. This is exactly where the Semantic Ceiling draws the line: the
+pipeline found prerequisites (T0) and built the stimuli (T2); whether any bat sequence is
 actually compositional is undecidable by computation and must be answered by receiver-response
 playback (T2–T4). The pipeline asserts nothing about meaning.
+
+**Scope decision — no new corpus (v1.0 freeze respected).** A within-bout animal "AB > parts"
+test would require a corpus with sequence-level (per-call) context/meaning labels; none of the
+current animal corpora qualify (Bengalese/Rook: bout-level song-vs-call labels only; bat:
+bout-level Context; infant marmoset: degenerate repertoire). Adding a new dataset (e.g.
+Campbell's monkeys, Japanese tits — canonical compositional suffixation) would require new
+loaders, router runs, and a new section, violating the Architecture v1.0 freeze and delaying
+publication. The computational phase is therefore closed: bat §37 is the definitive animal
+test, LibriSpeech is the positive control, and the 25 bat stimuli are handed to the wet lab.
+
 
