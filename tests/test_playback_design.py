@@ -16,6 +16,7 @@ import numpy as np
 from bioacoustic_pipeline.experiments.playback_design import (
     affect_morphing,
     alias_substitution,
+    audio_splicer,
     candidate_selector,
     motif_variants,
     naturalness_preflight,
@@ -217,6 +218,78 @@ class TestPlaybackManifest(unittest.TestCase):
     def test_unknown_experiment_rejected(self):
         with self.assertRaises(ValueError):
             playback_manifest.build_manifest("turing_test", "bat", [])
+
+
+class TestAudioSplicer(unittest.TestCase):
+    """Compositional + standard DSP splice conditions (exemplar-based, deterministic)."""
+
+    def _units(self):
+        # distinct amplitudes so isolated/reversed/natural are distinguishable
+        return [np.ones(2000, dtype=np.float32) * 0.1, np.ones(2000, dtype=np.float32) * 0.5]
+
+    def test_extract_unit_audio_slices_segments(self):
+        audio = np.arange(16000, dtype=np.float32)
+        units = audio_splicer.extract_unit_audio(0.0, 1.0, [(0.0, 0.25), (0.25, 0.5)], audio, 16000)
+        self.assertEqual(len(units), 2)
+        self.assertEqual(units[0].size, int(0.25 * 16000))
+
+    def test_generate_all_counterfactuals_has_five_conditions(self):
+        donor = [np.ones(2000, dtype=np.float32) * 0.3]  # donor from another caller
+        res = audio_splicer.generate_all_counterfactuals(
+            self._units(), 16000, donor_pool=donor, seed=0
+        )
+        conds = [r.condition for r in res]
+        self.assertEqual(
+            set(conds),
+            {
+                "natural",
+                "order_shuffled",
+                "onset_offset_swap",
+                "caller_swapped",
+                "amplitude_matched",
+            },
+        )
+
+    def test_generate_all_counterfactuals_caller_swapped_falls_back_without_donor(self):
+        # documented behaviour: empty donor_pool -> caller_swapped becomes natural
+        res = audio_splicer.generate_all_counterfactuals(self._units(), 16000, seed=0)
+        self.assertNotIn("caller_swapped", [r.condition for r in res])
+
+    def test_isolated_unit_renders_one_unit_and_clamps_index(self):
+        units = self._units()
+        iso = audio_splicer.splice_isolated_unit(units, 16000, idx=1)
+        self.assertEqual(iso.condition, "isolated_unit")
+        self.assertEqual(iso.n_units, 1)
+        self.assertEqual(iso.provenance["isolated_index"], 1)
+        # out-of-range index clamps to 0, not an error
+        iso0 = audio_splicer.splice_isolated_unit(units, 16000, idx=99)
+        self.assertEqual(iso0.provenance["isolated_index"], 0)
+        # empty units → empty audio, no crash
+        empty = audio_splicer.splice_isolated_unit([], 16000, idx=0)
+        self.assertEqual(empty.audio.size, 0)
+
+    def test_reversed_is_ba_not_random(self):
+        units = self._units()
+        rev = audio_splicer.splice_reversed(units, 16000)
+        self.assertEqual(rev.condition, "reversed")
+        self.assertEqual(rev.provenance["order"], "reversed")
+        # reversed concatenation should differ from natural (A then B vs B then A)
+        nat = audio_splicer.splice_natural(units, 16000)
+        self.assertFalse(np.allclose(rev.audio[:2000], nat.audio[:2000]))
+        # single unit → falls back to natural (nothing to reverse)
+        single = audio_splicer.splice_reversed([units[0]], 16000)
+        self.assertEqual(single.condition, "natural")
+
+    def test_compositional_set_is_five_distinct_conditions(self):
+        res = audio_splicer.generate_compositional_counterfactuals(self._units(), 16000, 0, 1)
+        conds = [r.condition for r in res]
+        self.assertEqual(
+            conds,
+            ["natural", "isolated_unit", "isolated_unit", "reversed", "amplitude_matched"],
+        )
+        # isolated A is unit 0 (amplitude 0.1), isolated B is unit 1 (amplitude 0.5)
+        iso_a, iso_b = res[1], res[2]
+        self.assertLess(np.max(np.abs(iso_a.audio)), np.max(np.abs(iso_b.audio)))
 
 
 if __name__ == "__main__":

@@ -1775,3 +1775,61 @@ stimuli (T2–T4, §6), the receiver animal's brain — by attending to the *for
 The pipeline has built the computational trap (exemplars + counterfactuals + provenance);
 the field experiment springs it. This is why Track-C playback is not a nice-to-have next
 step but the mathematically necessary continuation of §36.
+
+## 37. Compositional-structure mining — structural prerequisites only (Semantic-Ceiling-safe, 2026-06-24)
+
+**Question.** Compositionality — a sequence AB carrying information/behaviour that A or B
+alone do not (e.g. Campbell's-monkey "-oo" suffixation) — is a *meaning* claim. The Semantic
+Ceiling forbids asserting it from acoustics. So this section does NOT detect compositionality;
+it detects the **structural prerequisites** for it (T0) and generates the exact counterfactual
+stimuli (T2) the wet lab would need to test it. No new module is built — frozen modules are
+reused end-to-end.
+
+**Setup.** Egyptian fruit bat, 2000 bouts. Sub-call segmentation = raw NBD (`bat_call_granular`,
+the §13/§34-validated species-appropriate segmenter; HECB's CRNN is discrete-call-only and is
+the wrong regime for graded bouts — see script header). Tokenization = global k-means (k=24) over
+sub-call acoustic fingerprints. Reused modules: `structural_alternatives.probabilistic_suffix_tree`
+(variable-order Markov), `structural_alternatives.transition_network` (graph topology),
+`context_binding.association_test` (cross-bout Cramér's V), and the new
+`audio_splicer.generate_compositional_counterfactuals` (T2 stimuli). Script:
+`scripts/compositional_candidates_bat.py`.
+
+**T0 structural prerequisites detected:**
+
+| Prerequisite | Evidence | Present? |
+|---|---|---|
+| Non-random transitions (PST) | 1367 significant nodes, max-depth 4, entropy-rate 2.21 | **YES** (rich syntax) |
+| High-TP distinct bigrams | 17→1 (ratio 18.7), 1↔11 reciprocal (counts 199/203, ratio ~11–13) | **YES** |
+| Positional specialists | cluster 8 onset 0.68 (n=1222); clusters 5/21 offset 0.82/0.80 | **YES** (prefix/suffix signatures) |
+| Transition-network topology | 24 nodes, 5 communities, density 0.51 | modular syntax |
+
+**Cross-bout compositional-prerequisite test (honest negative).** Does *bout-level occurrence*
+of the top AB bigram (17→1) associate with Context more strongly than occurrence of A or B alone?
+
+| Pattern | Cramér's V vs Context | n bouts |
+|---|---|---|
+| AB-present (17→1) | 0.162 (p=0.005) | 40 |
+| A-present (17) | 0.195 | 84 |
+| B-present (1) | 0.186 | 155 |
+
+The AB↔Context association is **significant** (p=0.005) but does **NOT exceed** either part
+(0.162 < 0.195, 0.186). So at the *distributional* level the combination carries no more
+Context-association than its components. CAVEAT: bat Context is per-bout, so this is a
+cross-bout co-occurrence test, NOT a within-sequence meaning test — it can only falsify a
+prerequisite, never confirm compositionality.
+
+**T2 counterfactuals generated.** For the top candidate bouts, the DSP Audio Splicer produced
+25 compositional stimuli (5 bouts × 5 conditions): natural_AB · isolated_A · isolated_B ·
+reversed_BA · amplitude_matched_AB, with full provenance + a manifest carrying the H0-CMC
+hypothesis: *"if AB is compositional, receiver response to natural_AB > max(isolated_A,
+isolated_B) and differs from reversed_BA."* Exemplar-based DSP (slice + crossfade), not neural
+synthesis.
+
+**Verdict (ceiling-respecting).** The bat repertoire exhibits strong *structural prerequisites*
+for compositionality — non-random syntax, positional specialists, significant bigram↔Context
+association — but there is **no cross-bout evidence that any AB combination is distributionally
+more than the sum of its parts.** This is exactly where the Semantic Ceiling draws the line:
+the pipeline found prerequisites (T0) and built the stimuli (T2); whether any sequence is
+actually compositional is undecidable by computation and must be answered by receiver-response
+playback (T2–T4). The pipeline asserts nothing about meaning.
+

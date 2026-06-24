@@ -404,6 +404,13 @@ Stimuli are generated via exemplar-based DSP (slice + crossfade + concatenate), 
 synthesis. They are deterministic, firewall-clean, and transparent for the wet lab. Each
 stimulus carries provenance (source file, emitter, context, permutation/donor index).
 
+A compositional extension (`generate_compositional_counterfactuals`; §37) tests whether a
+sequence AB is perceived as compositional: it emits natural_AB, isolated_A, isolated_B,
+reversed_BA, and amplitude_matched_AB for high-transitional-probability candidate bigrams
+mined from the frozen PST/transition-network modules. The pipeline asserts only that these
+are structural prerequisites (T0); whether AB is compositional is decided by the receiver's
+response (T2–T4), never by computation.
+
 ---
 
 ## 7. Discussion

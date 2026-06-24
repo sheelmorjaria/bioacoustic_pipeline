@@ -185,3 +185,62 @@ def generate_all_counterfactuals(
         splice_amplitude_matched(units, sr),
     ]
     return results
+
+
+def splice_isolated_unit(units: list[np.ndarray], sr: int, idx: int = 0) -> SpliceResult:
+    """Render a single unit in isolation (compositional playback: Isolated A / Isolated B).
+
+    Same DSP path as the in-sequence rendering (crossfade is a no-op on one unit) so the
+    isolated unit is acoustically comparable to its rendering inside AB. This is the control
+    that asks: "is the receiver's response to the AB *sequence* greater than its response to
+    either part alone?" — the structural test for compositionality (T2), never a meaning claim.
+    """
+    if not units:
+        return SpliceResult(
+            "isolated_unit", np.zeros(0, dtype=np.float32), sr, 0, {"isolated_index": idx}
+        )
+    j = idx if 0 <= idx < len(units) else 0
+    return SpliceResult(
+        "isolated_unit", _apply_crossfade([units[j]], sr=sr), sr, 1, {"isolated_index": j}
+    )
+
+
+def splice_reversed(units: list[np.ndarray], sr: int) -> SpliceResult:
+    """Reverse the unit order — the canonical "same parts, wrong order" control (Shuffled BA).
+
+    Distinct from ``splice_order_shuffled`` (a *random* permutation): reversed is the specific
+    AB -> BA transform that tests whether order/positional roles carry the effect. For a 2-unit
+    candidate it is exactly the BA counterfactual.
+    """
+    if len(units) < 2:
+        return splice_natural(units, sr)
+    rev = list(units)[::-1]
+    return SpliceResult(
+        "reversed", _apply_crossfade(rev, sr=sr), sr, len(units), {"order": "reversed"}
+    )
+
+
+def generate_compositional_counterfactuals(
+    units: list[np.ndarray], sr: int, a_idx: int = 0, b_idx: int = 1
+) -> list[SpliceResult]:
+    """Compositional (H0-CMC) counterfactual set for a candidate AB sequence.
+
+    Returns: [natural_AB, isolated_A, isolated_B, reversed_BA, amplitude_matched_AB].
+
+    Design: if AB is compositional, the receiver's response to natural_AB should exceed the
+    response to isolated_A and isolated_B (greater-than-the-sum) and differ from reversed_BA
+    (order matters). amplitude_matched controls for loudness. This is a T2 stimulus set; the
+    wet lab decides whether AB is perceived as compositional. The pipeline asserts NOTHING
+    about meaning (semantic ceiling intact).
+    """
+    if not units:
+        return [splice_natural(units, sr)]
+    a = min(a_idx, len(units) - 1)
+    b = min(b_idx, len(units) - 1)
+    return [
+        splice_natural(units, sr),
+        splice_isolated_unit(units, sr, a),
+        splice_isolated_unit(units, sr, b),
+        splice_reversed(units, sr),
+        splice_amplitude_matched(units, sr),
+    ]

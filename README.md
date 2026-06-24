@@ -326,6 +326,9 @@ python scripts/identity_form_context_disentanglement.py
 # §36 Entanglement Ceiling — AVES ablation (reviewer-proofing: deep SSL control)
 python scripts/entanglement_ceiling_aves.py --n-per-type 500 --min-calls-per-caller 20
 
+# §37 Compositional-structure mining (structural prerequisites T0 + T2 stimuli)
+python scripts/compositional_candidates_bat.py --n-bouts 2000 --k 24
+
 # Step 6: DSP Audio Splicer (5-condition counterfactual WAVs)
 python scripts/playback_splice.py --n-bouts 20 --out outputs/playback_stimuli
 
@@ -638,10 +641,14 @@ individually_stereotyped / socially_grounded / human_lexical). Secondary flags
 pre-router using MP recurrence + RQA LAM to skip heavy DTW on degenerate data.
 
 ### DSP Audio Splicer (`experiments/playback_design/audio_splicer.py`)
-Track C: generates 5-condition counterfactual WAV stimuli from HECB-segmented
-calls — natural / order_shuffled / onset_offset_swap / caller_swapped /
-amplitude_matched. Exemplar-based DSP (slice + crossfade + concatenate), NOT
-neural synthesis. Deterministic, firewall-clean. 100 bat stimuli preflighted.
+Track C: generates counterfactual WAV stimuli from HECB/raw-NBD-segmented calls.
+Two stimulus families: (1) the standard 5-condition set (natural / order_shuffled /
+onset_offset_swap / caller_swapped / amplitude_matched) and (2) the **compositional**
+set (`generate_compositional_counterfactuals`: natural_AB / isolated_A / isolated_B /
+reversed_BA / amplitude_matched_AB) for testing whether a sequence AB is perceived as
+compositional (response to AB > max(A,B) and ≠ BA). Exemplar-based DSP (slice +
+crossfade + concatenate), NOT neural synthesis. Deterministic, firewall-clean.
+§37 mines compositional-candidate bigrams and emits these stimuli.
 
 ### Caller-Identity Disentanglement (`representation/disentangle.py`)
 Three methods to scrub caller identity from the 44-D fingerprint: `disentangle_delta()`
