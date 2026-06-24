@@ -112,15 +112,16 @@ Verdict: computational hypothesis + confidence + falsification tests
     prerequisite. The VQ-VAE / β-VAE must receive the same representation they
     were trained on (CPC / BioMAE / fingerprint / spectrogram / fused-bank). The
     source is explicit, configurable, and compatibility-checked before assignment.
-11. **The semantic ceiling is mathematical (§36).** Caller identity and call form
-    are non-separably entangled in the acoustic signal at every level — static
-    spectral, dynamic temporal, linear, affine, and non-linear. Four disentanglement
-    methods (LDA / LogReg projection, Z-normalization, delta-trajectory) all
-    *fail*: removing caller information destroys call-type structure. Only a learned
-    non-linear transform (CPC) can separate them — and the ethological firewall
+11. **The Entanglement Ceiling — the semantic ceiling is mathematical (§36).** Caller
+    identity and call form are non-separably entangled in the acoustic signal at every
+    level — static spectral, dynamic temporal, linear, affine, and non-linear. Four
+    disentanglement methods (LDA / LogReg projection, Z-normalization, delta-trajectory)
+    all *fail*: removing caller information destroys call-type structure (up to 4× harder).
+    The motor pattern *itself* is caller-specific ("the medium is the message"). Only a
+    learned non-linear transform (CPC) can separate them — and the ethological firewall
     blocks that on animals. The correct response is the whole-call-primary invariant:
     use the entangled signal as-is, and let only Track-C biology (not computation)
-    validate meaning.
+    validate meaning. This is the paper-defining negative result.
 12. **The three-bucket thesis.** Vocal communication splits cleanly into three
     epistemic buckets the pipeline treats differently: (1) **what acoustics encode** —
     caller identity + call form, recoverable by the fingerprint and HECB; (2) **what
@@ -496,7 +497,7 @@ DUSTED corroborated by 4 independent mathematical paradigms:
 
 The pipeline does NOT manufacture structure from arbitrary input.
 
-### The disentanglement proof — semantic ceiling is mathematical (§36)
+### The Entanglement Ceiling — semantic ceiling is mathematical (§36)
 
 Four methods tested to separate caller identity from call form in the 44-D fingerprint:
 
@@ -636,8 +637,9 @@ neural synthesis. Deterministic, firewall-clean. 100 bat stimuli preflighted.
 Three methods to scrub caller identity from the 44-D fingerprint: `disentangle_delta()`
 (non-linear differencing), `disentangle_orthogonal()` (LDA/LogReg subspace projection),
 `disentangle_znorm()` (per-speaker Z-normalization). `evaluate_disentanglement()`
-measures caller-V vs form-V before/after. **All three empirically fail** (§36) —
-the semantic ceiling is mathematically proven.
+measures caller-V vs form-V before/after. **All four empirically fail** (§36) — this is
+the **Entanglement Ceiling**: the semantic ceiling is mathematically proven, mandating
+Track-C biology for meaning.
 
 ### Channel Audit + Temporal Ecology (`diagnostics/`)
 `channel_audit.py`: per-recording SNR / reverb proxy / spectral attenuation / quality

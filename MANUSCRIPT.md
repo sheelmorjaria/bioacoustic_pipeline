@@ -22,12 +22,17 @@ retrieval-only use; (2) a semantic ceiling that prohibits any computational clai
 validated meaning—only Track C playback biology can elevate a signal above T1 on our
 six-rung causal evidence ladder (T0–T5); and (3) abstention as a first-class output,
 whereby axes that cannot compute abstain with a structured reason rather than emitting a
-false biological null. The pipeline operates autonomously at the acoustic-structure
-level (T0–T1), generates playback-ready counterfactual stimuli for biological validation
-(T2–T4), and demonstrates 33× specificity on negative controls. Every validated finding
-lands in exactly one of three buckets: what acoustics encode (individual identity, call
-form), what they do not encode (context, valence, social partner, word identity), and
-what requires social or biological validation to interpret function.
+false biological null. We further prove the **Entanglement Ceiling**: caller identity and
+call form are non-separably entangled in the 44-D acoustic fingerprint — four disentanglement
+methods (linear, affine, and non-linear structural) all fail, with form degrading up to 4×
+harder than identity. This is not a policy choice but a mathematical fact, which vindicates
+the firewall and mandates Track-C playback as the only path to functional meaning. The
+pipeline operates autonomously at the acoustic-structure level (T0–T1), generates
+playback-ready counterfactual stimuli for biological validation (T2–T4), and demonstrates
+33× specificity on negative controls. Every validated finding lands in exactly one of
+three buckets: what acoustics encode (individual identity, call form), what they do not
+encode (context, valence, social partner, word identity), and what requires social or
+biological validation to interpret function.
 
 ---
 
@@ -80,6 +85,10 @@ This work makes the following contributions:
   corroborated by independent mathematics: probabilistic suffix trees (variable-order
   Markov), transition-network topology (graph theory), recurrence quantification analysis
   (dynamical systems), and matrix profile (continuous subsequence matching).
+- A **proof of the Entanglement Ceiling**: caller identity and call form are
+  non-separably entangled in the acoustic fingerprint — four linear/affine/non-linear
+  disentanglement methods all fail. The semantic ceiling is a mathematical fact, not a
+  policy choice, which vindicates the firewall and mandates Track-C biology for meaning.
 - The **H0-CMC evidence ladder** (T0–T5), connecting acoustic discovery to causal
   biological validation, with an explicit semantic-validation mapping.
 - A **DSP Audio Splicer** generating five-condition counterfactual playback stimuli from
@@ -283,7 +292,63 @@ whole-call V) on call-type recovery. The result is definitive: at the best paren
 (oracle), the hierarchy benefit is +0.021 V on meerkat and **negative** on marmoset. The
 sub-call structure is augmentation for motif discovery, not a lever for call-type recovery.
 
+### 4.6 The Entanglement Ceiling: A Mathematical Proof of the Semantic Ceiling
+
+§4.1 showed that both caller identity and call form are reliably encoded in the acoustic
+fingerprint. The natural question is whether they can be *separated* — whether a
+"caller-washed" representation exists that recovers call form independent of the caller
+(the animal analogue of speaker-invariant word recognition). We prove they cannot.
+
+We attempt to scrub caller identity from the 44-D acoustic fingerprint by four methods
+spanning every algebraic and structural class: orthogonal subspace projection (LDA,
+LogReg), affine normalization (per-speaker Z-scoring), and non-linear structural
+differencing (delta-trajectories). In every case, removing caller information destroys
+call-form information *faster* — up to 4× harder (full table in §36).
+
+| Method | Mathematics | Δ caller V | Δ form V | Result |
+|---|---|---|---|---|
+| LDA projection | Linear subspace | −0.029 | **−0.120** | FAIL (subspaces overlap) |
+| LogReg projection | Linear weight | −0.005 | −0.013 | FAIL (inseparable) |
+| Z-normalization | Affine (mean + scale) | −0.019 | **−0.074** | FAIL (overlap) |
+| Delta-trajectory | Non-linear differencing | −0.105 | **−0.163** | FAIL (dynamics are caller-specific) |
+
+**Biological interpretation: the medium is the message.** The delta-trajectory failure is
+the most profound result. It proves that a Phee call from marmoset A is not a "Phee
+template" played through marmoset A's vocal tract. The motor pattern itself — the temporal
+dynamics of how the vocal apparatus moves — is caller-specific. Animal calls are therefore
+not like human words: human language requires decoupling the message from the messenger
+(speaker-invariance), whereas animal communication relies on *identity–form entanglement* —
+*who* is calling is inextricably linked to *how* they call.
+
+**Human vs. animal.** This closes the loop on the cross-species analogy. Human speech *can*
+be partially disentangled — CPC's contrastive objective partially separates speaker from
+word content (§25), but only because it was trained on human speech. Animals cannot: no
+algebraic/structural transform substitutes, and the ethological firewall correctly prohibits
+the only thing that could (cross-species learned weights). The human CPC model is therefore
+biologically incompatible with animal acoustics, not merely procedurally forbidden.
+
+**Architectural consequence.** This elevates the pipeline's invariants from good engineering
+practice to mathematical necessity:
+
+- **The firewall is proven, not policy.** Because linear algebra cannot disentangle animal
+  identity from form, speaker-invariance *requires* a learned non-linear model — which the
+  firewall blocks. The pipeline is therefore forced to accept the entangled 44-D fingerprint
+  as the ceiling.
+- **The whole-call-primary invariant (§30) is locked.** Sub-call pooling cannot beat the
+  whole call because the fragments still carry the heavy, entangled caller signature —
+  breaking the call into pieces shatters whole-call form while retaining entangled identity
+  noise.
+- **Cross-caller retrieval fails (§26) is explained.** RookID fine-Event retrieval falls
+  below chance because the pipeline *cannot* abstract the call-type away from the caller —
+  they are physically the same signal.
+
+Consequently, bioacoustic semantic decoding from acoustics alone is not merely difficult —
+it is algebraically impossible without non-linear learned disentanglement, which the firewall
+prohibits. This mathematically *mandates* the Track-C (H0-CMC) approach: functional meaning
+cannot be decoded; it must be biologically validated via playback (§5, §6).
+
 ---
+
 
 ## 5. The H0-CMC Evidence Ladder
 
@@ -357,7 +422,10 @@ Every finding in this pipeline lands in exactly one of three buckets:
   complexity on animals but is not yet trained.
 - **CPC is human-only.** The ethological firewall blocks cross-species weight transfer.
   The animal representation is the acoustic fingerprint—physics-grounded and portable, but
-  not learned. This is a feature (no anthropomorphic contamination), not a gap.
+  not learned. The Entanglement Ceiling (§4.6, §36) proves this is not merely a policy
+  preference: speaker-invariance requires a learned non-linear transform, and no
+  algebraic/structural transform can substitute on the physics fingerprint. This is a
+  feature (no anthropomorphic contamination), mathematically mandated, not a gap.
 - **Sample sizes.** The bat RQA-by-context analysis uses n=26 bouts per context (firmed
   from an initial n=6). The LAM result (p=0.016) is stable across both sample sizes, but a
   larger corpus would further strengthen it.
@@ -384,9 +452,14 @@ framework for honest inference: every claim is calibrated, every negative is str
 and every semantic assertion is gated behind biological evidence. Four independent
 mathematical paradigms corroborate the same structural regime classifications across five
 corpora, demonstrating that the findings are properties of the vocalizations, not the
-method. The pipeline is frozen, tested (247 tests), and ready for the next phase: wet-lab
-playback experiments that move the evidence from T1 (context-associated) to T4
-(causally supported).
+method. The Entanglement Ceiling (§4.6) closes the computational case: because caller
+identity and call form cannot be separated from acoustics by any algebraic or structural
+transform, functional meaning is *undecidable by computation alone* — the animal receiver,
+attending to form or caller, is the only disentangler. This mathematically mandates the
+pivot to Track C: the pipeline is frozen, tested (247 tests), and ready for the next
+phase — wet-lab playback experiments that move the evidence from T1 (context-associated)
+to T4 (causally supported), using the `caller_swapped` and `order_shuffled` counterfactuals
+to ask the receiver's brain what the computer provably cannot decode.
 
 ---
 

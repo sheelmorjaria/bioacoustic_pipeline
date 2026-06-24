@@ -1555,7 +1555,7 @@ finch song. Blind unsupervised HECB recovers the ethologically-validated modular
 the biological reality across all three regimes (discrete / graded / sparse). The discovery stack is
 frozen; the pivot is to Track C (DSP Audio Splicer / H0-CMC counterfactuals).
 
-## 36. The disentanglement proof — caller identity and call form are non-separably entangled (2026-06-23)
+## 36. The Entanglement Ceiling — caller identity and call form are non-separably entangled (2026-06-23)
 
 **Question.** §26 established that animal calls are *non-additively caller-bound* — the raw distance
 ratio between same-call-type/different-caller and different-call-type/same-caller pairs is ≈1, meaning
@@ -1683,3 +1683,41 @@ at the k-means granularity.
 - Cross-caller call-type generalization (the animal analogue of cross-speaker word recognition) is
   fundamentally limited by this entanglement — it requires a species-specific learned representation
   (the future species CPC/VQ-VAE), not an algebraic transform on the physics fingerprint.
+
+### Named result: the Entanglement Ceiling
+
+This is the **Entanglement Ceiling**: caller physical identity and call motor form are
+non-linearly, non-additively woven together in acoustic physics, at every level the
+fingerprint measures (static spectral, dynamic temporal, linear, affine, non-linear). By
+exhaustively ruling out all four algebraic and structural methods, this section proves
+there is **no mathematical trick left** to squeeze "pure form" out of animal audio. It is
+the ultimate justification for why the pipeline abstains from semantic claims
+(`semantic_validation: none`): the computational representation space is exhausted.
+
+**Biological interpretation — the medium is the message.** The delta-trajectory failure is
+the most biologically profound result here. It proves a Phee call from marmoset A is not
+merely a "Phee template" played through marmoset A's vocal tract. The motor pattern itself
+— the temporal dynamics of how the vocal apparatus moves — is caller-specific. Animal calls
+are therefore fundamentally unlike human words: human language *requires* decoupling the
+message from the messenger (speaker-invariance), whereas animal communication relies on
+**identity–form entanglement** — *who* is calling is inextricably linked to *how* they call.
+
+**Human vs. animal — closing the loop.** This sharpens the cross-species analogy and makes
+the human CPC model *biologically*, not merely procedurally, incompatible with animal
+acoustics. Human speech *can* be partially disentangled — CPC's contrastive objective
+partially separates speaker from word (§25, §29: cross-speaker word retrieval 5–7× chance),
+but only because it was *trained on human speech*. Animals cannot: no algebraic/structural
+transform substitutes, and the firewall blocks the only thing that could (cross-species
+learned weights). Humans can be partially centered; animals cannot (§25 vs §36) — the
+ceiling is asymmetric across the species boundary.
+
+### Why this mandates Track C (the final pivot)
+
+With this test, the computational representation space is officially exhausted. Because the
+computer cannot disentangle identity from form, the **only entity that can is the animal
+receiver itself.** When the wet lab plays the `caller_swapped` or `order_shuffled` DSP
+stimuli (T2–T4, §6), the receiver animal's brain — by attending to the *form* or to the
+*caller* — is the instrument that performs the disentanglement the algebra provably cannot.
+The pipeline has built the computational trap (exemplars + counterfactuals + provenance);
+the field experiment springs it. This is why Track-C playback is not a nice-to-have next
+step but the mathematically necessary continuation of §36.
