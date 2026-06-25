@@ -341,6 +341,9 @@ python scripts/individual_vs_group_discovery.py --n-per-type 500 --min-calls-per
 # §41 Attribute recurrent structures to within-individual vs across-group (Herfindahl vs null)
 python scripts/recurrent_structure_attribution.py --age adult --min-count 5
 
+# §42 Same attribution across corpora (zebra finch / marmoset / Bengalese / LibriSpeech)
+python scripts/recurrent_structure_attribution_cross_corpora.py
+
 # Step 6: DSP Audio Splicer (5-condition counterfactual WAVs)
 python scripts/playback_splice.py --n-bouts 20 --out outputs/playback_stimuli
 

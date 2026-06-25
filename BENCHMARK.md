@@ -2046,6 +2046,49 @@ for sequence/motif discovery* (where ~half is idiosyncratic), while confirming g
 analysis is sound for the underlying unit categories. Ceiling-bound: call types are acoustic
 categories, NOT meaning.
 
+## 42. Recurrent-structure attribution across corpora (2026-06-25)
+
+**Question.** Does the §41 within-vs-across split generalise beyond zebra finch? The
+attribution (Herfindahl over individuals vs weighted-random null) is corpus-agnostic, so it is
+run on every repertoire with `(per-recording unit sequences, individual labels)`. Script:
+`scripts/recurrent_structure_attribution_cross_corpora.py`.
+
+| corpus | n_rec | n_ind | #bigrams | %WITHIN-individual | top within |
+|---|---|---|---|---|---|
+| **Bengalese** (song, GT syllables) | 15391 | 11 | 92 | **84%** | `7->7` (Bird0, top1 1.00) |
+| **zebra finch** (calls) | 173 | 24 | 50 | **54%** | `Tu->Te` (GraGra, top1 1.00) |
+| **marmoset** (calls) | 74 | 74 | 25 | **0%** | — (see caveat) |
+| **LibriSpeech** (human words) | 603 | 13 | 329 | **26%** (74% across) | rare speaker-specific phrases |
+
+**Verdict — the §36/§41 prediction is confirmed across repertoires.** The % of recurrent
+structure that is **individual-specific scales with how stereotyped/individual the repertoire
+is, and inverts for human speech**:
+
+- **Bengalese song = 84% within-individual** — the strongest. Each bird has its own syllable
+  motif grammar; recurrent syllable bigrams are overwhelmingly that bird's signature. This
+  independently corroborates §12 (DUSTED per-bird purity 0.895) from the attribution angle:
+  song motifs are individual motor patterns, not shared species rules.
+- **Zebra finch calls = 54% within** — the §41 result; calls are ~half individual-specific.
+- **Marmoset calls = 0% within** — *honest caveat*: each `parent_name` here is a single
+  recording session (n_ind = n_rec = 74; the corpus has no true multi-session individual IDs),
+  and there are only 5 coarse call types → limited bigram space that recurs across sessions.
+  So bigrams are shared/ACROSS, consistent with §40 (marmoset call-types are caller-invariant).
+  The within-test is underpowered for marmoset, not a real "0% structure."
+- **LibriSpeech words = 26% within / 74% across** — the human contrast. Word bigrams are
+  **speaker-invariant / shared** (it's the same language); the 26% within are speaker-specific
+  phrases/content. This is the speaker-invariance the §25/§29 work established, now read at the
+  sequence level.
+
+**Synthesis.** Animal recurrent structure (song most, calls next) is substantially
+**individual-specific** — the discovery-side consequence of the Entanglement Ceiling — whereas
+**human word structure is shared/speaker-invariant**. The "isolate individuals first"
+recommendation (§40–§41) is therefore quantitatively most urgent for song (84%) and meaningful
+for calls (54%), and least needed where structure is genuinely shared (human words, 26%; coarse
+call-type bigrams). Method is structure-agnostic — same attribution applies to DUSTED motif
+families or token bigrams given (occurrences, individual labels). Ceiling-bound: units are
+acoustic/lexical categories, NOT meaning.
+
+
 
 
 
