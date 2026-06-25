@@ -335,6 +335,9 @@ python scripts/compositional_zebrafinch.py --age adult
 # §39 Cross-corpus RQA — graded recurrent units / motif substrate
 python scripts/rqa_cross_corpora.py --n 80 --corpora bat,marmoset,zebra_finch,bengalese,librispeech
 
+# §40 Individual vs group recurrent-unit discovery (is "isolate individuals" always needed?)
+python scripts/individual_vs_group_discovery.py --n-per-type 500 --min-calls-per-caller 20
+
 # Step 6: DSP Audio Splicer (5-condition counterfactual WAVs)
 python scripts/playback_splice.py --n-bouts 20 --out outputs/playback_stimuli
 

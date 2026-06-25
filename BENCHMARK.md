@@ -1950,6 +1950,61 @@ at a fixed frame budget simply cannot resolve short-bout recurrence. The correct
 remains §34's within-bout stratified RQA, not this aggregate. (Lowering WIN/HOP for short
 recordings would add frames but breaks cross-corpus comparability — flagged, not silently done.)
 
+## 40. Is "isolate individuals first" always necessary? A direct test (2026-06-25)
+
+**Question.** A natural reading of §36 (Entanglement Ceiling) + §26 (rook cross-caller
+retrieval below chance) + §27 (consensus-template failure) is: *group-level* recurrent-unit /
+motif discovery is contaminated by the entangled caller signature, so one should **isolate
+individual repertoires first**. This section tests that recommendation directly — rather than
+assuming it — on marmoset (100 callers, 5 call types, 2495 calls). Reuses fingerprint k-means
+("codebook" = recurrent acoustic units) + `context_binding.association_test`. Script:
+`scripts/individual_vs_group_discovery.py`.
+
+**Three discovery modes, measuring call-FORM recovery (Cramér's V of token ↔ call-type):**
+
+| mode | V(token, call-type) | note |
+|---|---|---|
+| GROUP (pooled codebook, k=24) | **0.574** (p=0.005) | all callers pooled |
+| PER-CALLER (per-bird k-means) | 0.554 | mean over 89 callers (k capped by n//8 — see caveat) |
+| CROSS-CALLER transfer | **0.552** | caller A's codebook → caller B's calls (n=150 pairs) |
+
+**Decisive, unconfounded checks:**
+
+| check | result | reading |
+|---|---|---|
+| P(nearest-neighbour same call-TYPE) | **0.626** | call-type dominates |
+| P(nearest-neighbour same CALLER) | **0.029** | caller is weak at whole-call level |
+| Group V(token, call-type) vs V(token, caller) | 0.574 vs **0.283** | form ≫ caller |
+
+**Verdict — the recommendation is granularity-dependent, not universal (honest nuance).** For
+**coarse call-type recovery on marmoset, call-type structure is caller-INVARIANT**: a call's
+nearest neighbour is 21× more likely to share its *type* than its *caller* (0.626 vs 0.029),
+and a caller-A codebook recovers caller-B call-types almost as well as the pooled codebook
+(cross V 0.552 ≈ group 0.574). So **isolating the individual does not help — and is not needed
+— for coarse category discovery**: the shared vocal categories (Phee/Twitter/Trill/Tsik/Seep)
+generalise across callers. The §36 Entanglement Ceiling means caller cannot be *scrubbed*, but
+it does **not** mean coarse call-type discovery is contaminated — because call-type variance
+dominates caller variance at the whole-call level.
+
+**Where "isolate individuals first" DOES hold** (so the recommendation survives, scoped):
+fine-grained cross-caller *retrieval* (§26 rook, below chance), template *averaging* / consensus
+(§27, blurs), and individually-stereotyped repertoires where the bird IS the unit (Bengalese
+song §12 per-bird purity 0.895; rook §28). The rule is right for **fine-grained / stereotyped**
+structure; it is unnecessary for **coarse shared categories**.
+
+*Caveat (honesty):* the per-caller V (0.554) is **underpowered**, not interpretable as
+"per-caller < group" — per-caller k is capped at `n//8`, often <5 clusters for 5 types, so it
+is likely underestimated. The decisive, unconfounded tests are the NN-dominance and cross-caller
+transfer, both of which show coarse call-type structure is caller-invariant.
+
+**Synthesis.** The Entanglement Ceiling (§36) and the "isolate individuals" recommendation are
+both correct but operate at different granularities. Caller identity is entangled with call form
+(you can't linearly scrub it), yet coarse call-type categories are shared and caller-invariant
+(group discovery is clean). Individual-centric discovery becomes necessary as one moves to
+finer-grained, sub-type, or stereotyped structure — exactly where §26/§27/§12 showed
+group-level methods break. Ceiling-bound throughout: call types are acoustic categories, NOT meaning.
+
+
 
 
 
