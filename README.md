@@ -332,6 +332,9 @@ python scripts/compositional_candidates_bat.py --n-bouts 2000 --k 24
 # §38 Compositional scan — zebra finch call-type sequences (filename-only, instant)
 python scripts/compositional_zebrafinch.py --age adult
 
+# §39 Cross-corpus RQA — graded recurrent units / motif substrate
+python scripts/rqa_cross_corpora.py --n 80 --corpora bat,marmoset,zebra_finch,bengalese,librispeech
+
 # Step 6: DSP Audio Splicer (5-condition counterfactual WAVs)
 python scripts/playback_splice.py --n-bouts 20 --out outputs/playback_stimuli
 

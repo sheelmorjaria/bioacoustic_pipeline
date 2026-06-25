@@ -1904,5 +1904,52 @@ pipeline asserts nothing about meaning. Zebra finch **song** (`So`, 168 calls) i
 multi-syllable stream where syntax would live, but it is a small fraction of this call corpus
 and Bengalese already covers songbird syntax.
 
+## 39. Cross-corpus RQA — graded recurrent units / motif substrate (2026-06-25)
+
+**Question.** Where do graded recurrent units / motifs live across repertoires? RQA is the
+graded-dynamics lens — it measures recurrence in the continuous 44-D frame-fingerprint
+trajectory (DET = recurrent sequences of states = graded recurrent units / motifs;
+mean_diag_length L = motif duration; LAM = laminar/segment dwell) that discrete tokenization
+misses. §34 ran RQA *within* bat (LAM context-dependent); this runs it *across* corpora.
+
+**HONEST SCOPE.** RQA characterises the graded recurrent **substrate** (recurrent units,
+motif-like repetition, laminar segmentation) — the material composition could build on. It
+does **not** measure compositionality (order-dependent AB meaning) directly; that is §37/§38
+(PST / transition-network). Firewall-clean: all-species acoustic fingerprint.
+
+**Setup.** 44-D frame trajectory per recording (WIN 80 ms / HOP 40 ms / ≤120 frames, matching
+§34), `rqa_for_trajectory`, REC held ~constant so DET/LAM are length-comparable. n=80/corpus.
+Script: `scripts/rqa_cross_corpora.py`. Corpora: bat, marmoset, zebra finch, Bengalese,
+LibriSpeech (rook deferred — its 2 h 4-channel field wavs need per-call TSV segmentation).
+
+| corpus | n | DET | LAM | motif_L | frames |
+|---|---|---|---|---|---|
+| **Bengalese** (song) | 80 | **0.364** | 0.350 | **2.42** | 120 |
+| **LibriSpeech** (speech) | 80 | **0.352** | 0.417 | 2.30 | 120 |
+| marmoset (calls) | 80 | 0.330 | 0.325 | 2.00 | 27 |
+| zebra finch (calls) | 27 | 0.227 | 0.100 | 2.00 | 14 |
+| bat (bouts) | 80 | 0.067 | 0.000 | 1.00 | 14 |
+
+Kruskal-Wallis across corpora: **DET p=1.2e-10**, **LAM p=2.5e-20** (graded-recurrent dynamics
+differ strongly by repertoire). Ranked by graded-recurrent motif strength (DET×L): Bengalese
+0.88 > LibriSpeech 0.81 > marmoset 0.66 > zebra finch 0.46 > bat 0.07.
+
+**Verdict.** **Bengalese song carries the strongest graded recurrent motifs** — DET 0.36,
+motif_L 2.42 — independently corroborating §12 (DUSTED purity 0.895) and §33 (PST 247
+contexts) from the continuous-dynamics side: the method validates itself by correctly
+identifying the known motif-rich songbird. Human speech is close behind (recurrent
+phoneme/syllable structure); discrete-call repertoires (marmoset, zebra finch) have less. The
+graded-recurrent substrate scales with repertoire type: song/speech > discrete calls.
+
+**Two flagged frame-count caveats (honesty).** DET needs diagonal lines of length ≥2, which
+requires enough frames. **Bat (14 frames, short 1.5–3 s bouts) and zebra finch (14 frames,
+~0.2 s calls; only 27 of 80 recordings even reached ≥8 frames) are disadvantaged** — their low
+DET is a **resolution artifact, not a real absence of graded structure**. Bat graded dynamics
+are real (§34: within-bout LAM is context-dependent, p=0.016); this cross-corpus *aggregate*
+at a fixed frame budget simply cannot resolve short-bout recurrence. The correct bat analysis
+remains §34's within-bout stratified RQA, not this aggregate. (Lowering WIN/HOP for short
+recordings would add frames but breaks cross-corpus comparability — flagged, not silently done.)
+
+
 
 
