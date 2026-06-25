@@ -338,6 +338,9 @@ python scripts/rqa_cross_corpora.py --n 80 --corpora bat,marmoset,zebra_finch,be
 # §40 Individual vs group recurrent-unit discovery (is "isolate individuals" always needed?)
 python scripts/individual_vs_group_discovery.py --n-per-type 500 --min-calls-per-caller 20
 
+# §41 Attribute recurrent structures to within-individual vs across-group (Herfindahl vs null)
+python scripts/recurrent_structure_attribution.py --age adult --min-count 5
+
 # Step 6: DSP Audio Splicer (5-condition counterfactual WAVs)
 python scripts/playback_splice.py --n-bouts 20 --out outputs/playback_stimuli
 

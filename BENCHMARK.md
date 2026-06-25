@@ -2004,6 +2004,49 @@ both correct but operate at different granularities. Caller identity is entangle
 finer-grained, sub-type, or stereotyped structure — exactly where §26/§27/§12 showed
 group-level methods break. Ceiling-bound throughout: call types are acoustic categories, NOT meaning.
 
+## 41. Are the recurrent structures from individuals or across the group? (2026-06-25)
+
+**Question.** When the pipeline finds recurrent structures (motifs / bigrams / units), are they
+WITHIN-individual (one bird's idiosyncratic motor signature) or ACROSS-group (shared
+species-level structure)? §38 found Be↔Lt was one bird; this makes that attribution systematic
+for *every* recurrent structure.
+
+**Method — individual-concentration vs a weighted-random null.** For each structure (here,
+call-type unigrams + bigrams on zebra finch, 21 birds), partition its N occurrences by bird
+and compute the **Herfindahl H = Σ (ni/N)²** over birds. NULL = H when the occurrences are
+randomly assigned to birds weighted by each bird's session frequency (permutation). A structure
+is WITHIN-individual if H ≫ null (perm p<0.05 **and** top1 bird ≥0.5), else ACROSS-group. The
+method is structure-agnostic — same attribution applies to DUSTED motif families or token
+bigrams given (occurrences, individual labels). Script: `scripts/recurrent_structure_attribution.py`.
+
+**Result — recurrent BIGRAMS split ~50/50; recurrent UNITS are shared.**
+
+| | recurrent bigrams (n=50) | |
+|---|---|---|
+| WITHIN-individual | **27 (54%)** | one bird's signature, beyond null |
+| ACROSS-group | 23 (46%) | shared species-level |
+
+Within-individual bigrams are strikingly concentrated — e.g. `Tu→So`/`So→Tu` (bird YelOra,
+H=1.000), `Tu→Th` (LblRed, H=1.000), `Be→Be` (LblBlu, top1 0.91 — the §38 bird), and even the
+high-support `Dc→Ne` (n=50) is 78% one bird (LblBla). Across-group bigrams (`Ne→Te`, `Ag→Tu`,
+`Ne→Wh`, `Te→Wh`) are spread (top1 0.33–0.45).
+
+Unigram (call-type) attribution is the inverse: the **common** call types (Dc/Te/Ne/Th/Tu/Ag/
+Wh/So) are all **ACROSS** (shared), while only the **rare** types (Be, Lt) are WITHIN (one/few
+birds) — confirming §40 (coarse call-type recovery is caller-invariant).
+
+**Verdict — the resolution of the §36/§40 tension.** The **underlying UNITS** (call types) are
+shared and caller-invariant (§40, §41-unigram), but the **SEQUENCES** built from them (bigrams /
+motifs) are ~half individual-specific. So "are the recurrent structures from individuals or
+across the group?" → **both, split ~50/50 at the sequence level**, and each structure must be
+attributed to know which. This is the discovery-side consequence of the Entanglement Ceiling
+(§36): a large fraction of "recurrent motifs" are one caller's entangled motor signature, not a
+shared species rule. It validates the "isolate individuals first" recommendation *specifically
+for sequence/motif discovery* (where ~half is idiosyncratic), while confirming group-level
+analysis is sound for the underlying unit categories. Ceiling-bound: call types are acoustic
+categories, NOT meaning.
+
+
 
 
 
