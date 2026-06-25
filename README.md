@@ -329,6 +329,9 @@ python scripts/entanglement_ceiling_aves.py --n-per-type 500 --min-calls-per-cal
 # §37 Compositional-structure mining (structural prerequisites T0 + T2 stimuli)
 python scripts/compositional_candidates_bat.py --n-bouts 2000 --k 24
 
+# §38 Compositional scan — zebra finch call-type sequences (filename-only, instant)
+python scripts/compositional_zebrafinch.py --age adult
+
 # Step 6: DSP Audio Splicer (5-condition counterfactual WAVs)
 python scripts/playback_splice.py --n-bouts 20 --out outputs/playback_stimuli
 

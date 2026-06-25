@@ -1856,4 +1856,53 @@ loaders, router runs, and a new section, violating the Architecture v1.0 freeze 
 publication. The computational phase is therefore closed: bat §37 is the definitive animal
 test, LibriSpeech is the positive control, and the 25 bat stimuli are handed to the wet lab.
 
+## 38. Compositional scan — zebra finch call sequences (Semantic-Ceiling-safe, 2026-06-25)
+
+**Question.** Does the zebra finch **call** repertoire (not song) show compositional sequence
+structure? Unlike bat §37 (sub-call k-means tokens), zebra finch filenames encode
+biologist-annotated call types + within-session order, so this tests structure at the
+call-TYPE level — and one bird spans many sessions, so transition style can be tested for
+individual-specificity (a structural test bat's per-bout context could not support).
+
+**Setup.** Adult corpus (2969 wavs, 221 sessions). Filename `<individual>_<date>-<VT>-<zz>.wav`;
+canonical type = VT[:2] (11 categories per the dataset's Animal-Cognition-2016 scheme:
+Ag/Be/DC/Di/LT/Ne/So/Te/Th/Tu/Wh). Session = `<individual>_<date>`; **rendition number `zz` is
+treated as within-session call order**. 173 sessions with ≥3 calls (2841 calls, 21 birds).
+Reuses `structural_alternatives.{probabilistic_suffix_tree, transition_network}` +
+`context_binding.association_test`. Script: `scripts/compositional_zebrafinch.py` (filename-only, instant).
+
+**Two flagged assumptions / fixes (honesty):**
+- *Rendition order = temporal order* is inferred (notes don't state it); the mixed-type sample
+  sequences look bout-like, supporting it.
+- *Individual key*: the dataset warns of naming discrepancies (some files are `<name><digits>`
+  with no `_` before the date/time). The robust key is the **alphabetic bird-name prefix**
+  (`LblBlu`, `BlaBla`, …); `split('_')` scatters one bird's sessions and inflates/skips the
+  individual-specificity test. (An earlier `Dc→Ne p=0.005` reading came from that buggy parsing
+  and is **not** cited.)
+
+**T0 structural prerequisites:**
+
+| Prerequisite | Evidence | Present? |
+|---|---|---|
+| Non-random transitions (PST) | 106 significant nodes, max-depth 4, entropy-rate **1.09** | weak yes (predictable) |
+| Transition-network topology | 12 nodes, 75 edges, 9 communities, **density 0.57** | **dense / near-uniform** |
+| Sharp high-TP bigrams (common types) | none among Dc/Ne/Te/Th/Tu/Ag/Wh/So | **absent** |
+| Positional specialists | only Di onset 0.53 (n=15, small) | **absent** (common types) |
+| Individual-specificity (common bigram) | Dc→Te V=0.334, **p=0.428** | **absent** |
+| Individual-specificity (rare bigram) | Be→Lt V=0.703, p=0.015 | one bird (LblBlu) idiosyncrasy |
+
+The single high-TP distinct pair, **Be↔Lt (ratio 67, count 6), is one bird's (LblBlu)
+idiosyncratic alternation** — 12 adjacent pairs across 4 of its sessions — not a population rule.
+
+**Verdict.** Zebra finch calls are a **broad, freely-mixed repertoire**, not a compositional
+syntax system: transitions are non-random (low entropy-rate) but near-uniform across common
+types (density 0.57), with no sharp AB bigrams, no positional morphemes, and no caller-specific
+transition style beyond one bird's idiosyncrasy. This contrasts with **Bengalese song** (§12,
+the compositional songbird positive control) and mirrors the bat §37 negative at a higher,
+biologist-labeled level. As ever, compositionality is a meaning claim → Track-C-only; the
+pipeline asserts nothing about meaning. Zebra finch **song** (`So`, 168 calls) is the
+multi-syllable stream where syntax would live, but it is a small fraction of this call corpus
+and Bengalese already covers songbird syntax.
+
+
 
