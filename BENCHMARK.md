@@ -2088,6 +2088,49 @@ call-type bigrams). Method is structure-agnostic — same attribution applies to
 families or token bigrams given (occurrences, individual labels). Ceiling-bound: units are
 acoustic/lexical categories, NOT meaning.
 
+## 43. RQA on RookID — corvid field calls (2026-06-26)
+
+**Question.** Rook was deferred from the §39 cross-corpus RQA table (its ~2 h 4-channel field
+wavs can't be loaded whole). This runs RQA per-call: parse the per-recording TSV
+(Source/Event/Start/End), seek just each call's window (mono mixdown), 44-D frame trajectory,
+`rqa_for_trajectory`. 400 calls across the top 6 rooks. It (a) completes the §39 table with
+rook and (b) stratifies DET/LAM by Source. Script: `scripts/rook_rqa.py`.
+
+**Result (honest — dominated by a frame-count artifact).**
+
+| source | n | DET | LAM | dur_s |
+|---|---|---|---|---|
+| Balbo | 71 | 0.000 | 0.000 | 0.47 |
+| Feisty | 71 | 0.000 | 0.000 | 0.52 |
+| Kafka | 53 | 0.000 | 0.000 | 0.44 |
+| Brain | 47 | 0.000 | 0.000 | 0.46 |
+| Jolene | 44 | 0.000 | 0.000 | 0.51 |
+| Gigi | 26 | 0.333 | 0.250 | 0.56 |
+
+Corpus-level DET=0.000, LAM=0.000. Kruskal-Wallis across sources: DET p=0.024, LAM p=0.21.
+
+**Verdict (read carefully, do not overclaim).**
+1. **Rook calls are too short (~0.5 s → ~11 frames at 80/40 ms) for RQA DET to resolve** —
+   DET=0.000 for 5/6 rooks is the **same frame-count artifact as §39's bat and zebra finch**.
+   A ~0.5 s call at REC=0.05 yields only ~5 recurrent points → no diagonal motifs of length ≥2
+   can form. Rook joins the §39 short-recording caveat group; its graded dynamics (if any) are
+   not resolvable at a cross-corpus-comparable frame budget.
+2. **The KW DET p=0.024 is NOT robust individual-dependence** — it is driven by a single
+   outlier, **Gigi (n=26, DET=0.333)**, whose calls are slightly *longer* (0.56 s vs
+   0.44–0.52 s) and so barely cross the diagonal-forming threshold. The other five rooks are
+   all DET=0.000. This is a length artifact in one bird, not evidence that rooks differ in
+   graded dynamics. The script's auto-verdict ("individual-dependent") is **not** supported —
+   flagged rather than cited.
+3. **What would be needed**: a rook-specific RQA run with lower WIN/HOP (more frames per
+   short call) — but that breaks cross-corpus comparability (the §39 tradeoff). Not done here.
+
+**Completion of the §39 table.** Rook confirms the pattern: short isolated calls (rook, bat,
+zebra finch) are frame-count-limited under RQA; longer streams (Bengalese song, human speech,
+and to a lesser degree marmoset ~1 s calls) resolve graded recurrent structure. The honest
+rook finding is a *methodological* one — RQA needs sufficient trajectory length, and corvid
+field calls (~0.5 s) don't provide it at the standard resolution. Ceiling-bound: not meaning.
+
+
 
 
 
