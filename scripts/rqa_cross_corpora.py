@@ -112,9 +112,9 @@ def _bounded_files(root: Path, kind: str, n: int):
                 return
 
 
-def frame_trajectory(audio, sr, fp_fn):
-    win = int(WIN_MS / 1000 * sr)
-    hop = int(HOP_MS / 1000 * sr)
+def frame_trajectory(audio, sr, fp_fn, win_ms=WIN_MS, hop_ms=HOP_MS):
+    win = int(win_ms / 1000 * sr)
+    hop = int(hop_ms / 1000 * sr)
     frames, i = [], 0
     while i + win <= len(audio) and len(frames) < MAX_FRAMES:
         v = np.asarray(fp_fn(audio[i : i + win], sr), dtype=np.float32)
@@ -129,6 +129,13 @@ def main():
     ap.add_argument("--n", type=int, default=80, help="recordings per corpus")
     ap.add_argument("--corpora", default="all", help="comma list or 'all'")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument(
+        "--win-ms",
+        type=float,
+        default=WIN_MS,
+        help="fingerprint window ms (lower → more frames for short calls)",
+    )
+    ap.add_argument("--hop-ms", type=float, default=HOP_MS, help="trajectory hop ms")
     args = ap.parse_args()
 
     from bioacoustic_pipeline.diagnostics import acoustic_fingerprint as afp  # noqa: PLC0415
@@ -164,7 +171,7 @@ def main():
             if audio.ndim > 1:  # rook 4-channel → mono
                 audio = audio.mean(axis=1) if audio.ndim > 1 else audio
             audio = audio[: int(CAP_S * sr)]  # cap for speed (trajectory already bounded)
-            traj = frame_trajectory(audio, sr, fp_fn)
+            traj = frame_trajectory(audio, sr, fp_fn, args.win_ms, args.hop_ms)
             if traj.shape[0] < 8:
                 continue
             r = rqa_for_trajectory(traj)

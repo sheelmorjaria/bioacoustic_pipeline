@@ -2130,6 +2130,51 @@ and to a lesser degree marmoset ~1 s calls) resolve graded recurrent structure. 
 rook finding is a *methodological* one — RQA needs sufficient trajectory length, and corvid
 field calls (~0.5 s) don't provide it at the standard resolution. Ceiling-bound: not meaning.
 
+## 44. High-resolution RQA — lower WIN/HOP fixes the short-call artifact (2026-06-26)
+
+**Question.** §39/§43 flagged a frame-count artifact for short calls (rook/bat/zebra-finch
+DET≈0 at 80/40 ms) and worried that "lowering WIN/HOP breaks cross-corpus comparability."
+That worry was **over-cautious**: it applies to *per-corpus* settings, not to a *uniform*
+lower setting. Re-running all corpora at the SAME WIN=40 ms / HOP=10 ms (4× finer) keeps
+every trajectory on an identical scale, so cross-corpus comparison stays valid — and short
+calls get enough frames (~46 for a 0.5 s call) for DET to resolve.
+
+**Result — the artifacts vanish; the short-call corpora have real graded recurrence.**
+
+| corpus | §39 DET (80/40) | **DET (40/10)** | LAM (40/10) | motif_L |
+|---|---|---|---|---|
+| LibriSpeech | 0.352 | **0.709** | 0.776 | 3.38 |
+| marmoset | 0.330 | **0.632** | — | 2.86 |
+| Bengalese | 0.364 | 0.430 | 0.504 | 2.66 |
+| bat | 0.067 ⚠️ | **0.425** | — | 2.27 |
+| zebra finch | 0.227 | **0.427** | 0.401 | 2.00 |
+| rook (§43) | 0.000 ⚠️ | **0.323** | 0.333 | 2.12 |
+
+Kruskal-Wallis across corpora (40/10): DET p=3.3e-16, LAM p=2.1e-24. So **bat, zebra finch,
+and rook were never devoid of graded structure** — they were under-resolved at 80 ms. At 40 ms
+they land in the same band (~0.32–0.43) as Bengalese song.
+
+**Two honest caveats on the high-res run.**
+1. **The ranking is scale-dependent — it flips.** At 80 ms (coarse): Bengalese song >
+   speech > marmoset (syllable/word-scale motifs dominate). At 40 ms (fine): **speech >
+   marmoset > Bengalese** (fine-grained spectral recurrence dominates). Both are valid
+   readings of "graded recurrence" at different time scales; an RQA verdict MUST state the
+   WIN/HOP, and absolute DET at 40 ms is **not** comparable to §39's 80 ms DET (different
+   descriptor granularity). Cross-corpus comparison is valid *within* each resolution.
+2. **Rook individual-dependence is now robust.** At 80 ms the §43 KW DET p=0.024 was a
+   single-bird (Gigi) artifact. At 40 ms, multiple rooks have real DET (Balbo 0.33, Feisty
+   0.34, Jolene 0.35, Brain 0.30, Kafka 0.25) and **LAM p=2.5e-5** across sources — graded
+   dynamics genuinely differ across rooks, not an outlier. (This *is* a real finding, unlike
+   the §43 one I declined to cite.)
+
+**Verdict.** YES — a uniform lower WIN/HOP enables a fair, frame-sufficient cross-corpus RQA,
+and it overturns the §39/§43 "short calls have no graded recurrence" reading: they do
+(~0.32–0.43), just at finer granularity than 80 ms could see. The cost is a **scale-dependent
+ranking** — coarse windows favour syllable/song-scale recurrence (Bengalese), fine windows
+favour spectral micro-recurrence (speech, marmoset). Report both scales; do not collapse to
+one. WIN floor ~30–40 ms (fingerprint spectral estimation needs samples). Ceiling-bound: not meaning.
+
+
 
 
 
