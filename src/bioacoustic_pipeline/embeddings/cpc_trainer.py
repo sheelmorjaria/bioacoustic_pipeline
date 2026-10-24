@@ -28,6 +28,7 @@ from bioacoustic_pipeline.embeddings.cpc_autoregressive import (
     create_autoregressive,
 )
 from bioacoustic_pipeline.embeddings.cpc_encoder import EncoderConfig, create_encoder
+from bioacoustic_pipeline.utils.devices import resolve_device
 
 logger = logging.getLogger(__name__)
 
@@ -61,8 +62,28 @@ class TrainingConfig:
     checkpoint_dir: str = "checkpoints/cpc"
     save_every: int = 10  # Epochs between saves
 
-    # Device
-    device: str = "cuda" if torch.cuda.is_available() else "cpu"
+    # Device (cuda -> xpu -> cpu; see utils.devices — the old inline idiom
+    # silently ran CPU on Intel-GPU machines)
+    device: str = resolve_device()
+
+    # Data loading: parallel workers for corpora whose items re-load audio
+    # (interval datasets under shuffle defeat the in-process file cache)
+    num_workers: int = 0
+
+
+LOSS_VERSION = "v2-positive-exclusion-both-branches+valid-anchor-reduction"
+
+
+def positive_collision_mask(pos_pool_idx: torch.Tensor, neg_idx: torch.Tensor) -> torch.Tensor:
+    """Boolean (N, K) mask: sampled negative columns that ARE the anchor's positive.
+
+    Shared sampled negatives are drawn once per batch from the latent pool, so
+    a draw can collide with a particular anchor's exact positive — a label
+    leak that softens InfoNCE wherever it happens. Masked columns are set to
+    -inf downstream (exp(-inf)=0; if every negative is masked the anchor's
+    loss is 0, never NaN).
+    """
+    return neg_idx.unsqueeze(0) == pos_pool_idx.unsqueeze(1)
 
 
 class AudioSequenceDataset(Dataset):
@@ -298,20 +319,43 @@ class CPCModel(nn.Module):
             # Positive logit (column 0 of the candidate matrix).
             pos_logit = (c_norm * pos_norm).sum(dim=1, keepdim=True) / temperature  # (N, 1)
 
+            # Exact-positive exclusion: the positive of anchor (b, t) at
+            # horizon k sits at pool index b*T + (t + k + 1). Computed once,
+            # applied to BOTH pool branches (sampled and legacy full pool):
+            # a negative equal to the anchor's positive is a label leak.
+            anchors = seq_len - target_start
+            b_idx = torch.arange(batch_size, device=device).unsqueeze(1)
+            t_idx = torch.arange(anchors, device=device).unsqueeze(0)
+            pos_pool_idx = (b_idx * seq_len + t_idx + target_start).reshape(-1)
+
             if n_negatives is None or n_negatives >= pool_size:
-                # Full pool (legacy path).
+                # Full pool (legacy path) — mask the positive column per anchor.
                 neg_logits = torch.matmul(c_norm, pool.T) / temperature  # (N, M)
+                collisions = positive_collision_mask(
+                    pos_pool_idx, torch.arange(pool_size, device=device)
+                )
+                neg_logits = neg_logits.masked_fill(collisions, float("-inf"))
             else:
                 # Shared sampled negatives — memory-efficient (N, K) not (N, M).
                 neg_idx = torch.randint(0, pool_size, (cap,), device=device)
                 neg_vecs = pool[neg_idx]  # (K, hidden_dim)
                 neg_logits = torch.matmul(c_norm, neg_vecs.T) / temperature  # (N, K)
+                collisions = positive_collision_mask(pos_pool_idx, neg_idx)
+                if bool(collisions.any()):
+                    neg_logits = neg_logits.masked_fill(collisions, float("-inf"))
 
-            # [positive | negatives]; label 0 = the positive column.
+            # [positive | negatives]; label 0 = the positive column. Valid-
+            # anchor reduction: fully-masked anchors contribute no loss and
+            # no denominator mass (a plain mean would let their zeros dilute
+            # the objective and, in per-frame eval, fake perfect predictions).
             logits = torch.cat([pos_logit, neg_logits], dim=1)  # (N, 1+M) or (N, 1+K)
             labels = torch.zeros(n_anchors, dtype=torch.long, device=device)
 
-            total_loss = total_loss + F.cross_entropy(logits, labels)
+            from bioacoustic_pipeline.embeddings.loss_utils import (  # noqa: PLC0415
+                masked_cross_entropy,
+            )
+
+            total_loss = total_loss + masked_cross_entropy(logits, labels)
             valid_steps += 1
 
         return total_loss / max(valid_steps, 1)
@@ -373,7 +417,10 @@ class CPCTrainer:
                 train_dataset,
                 batch_size=config.batch_size,
                 shuffle=True,
-                num_workers=0,  # For compatibility
+                # parallel workers: interval corpora under shuffle re-load
+                # audio per item, defeating the in-process file cache
+                num_workers=config.num_workers,
+                persistent_workers=config.num_workers > 0,
             )
         else:
             self.train_loader = None
@@ -383,6 +430,8 @@ class CPCTrainer:
                 val_dataset,
                 batch_size=config.batch_size,
                 shuffle=False,
+                num_workers=config.num_workers,
+                persistent_workers=config.num_workers > 0,
             )
         else:
             self.val_loader = None
@@ -419,6 +468,7 @@ class CPCTrainer:
                 ar_context,
                 predictions,
                 self.config.temperature,
+                n_negatives=self.config.negative_samples,
             )
 
             # Backward pass
@@ -468,6 +518,7 @@ class CPCTrainer:
                     ar_context,
                     predictions,
                     self.config.temperature,
+                    n_negatives=self.config.negative_samples,
                 )
 
                 total_loss += loss.item()
@@ -481,7 +532,10 @@ class CPCTrainer:
         """Full training loop."""
         history = {"train_loss": [], "val_loss": []}
 
-        for epoch in range(self.config.num_epochs):
+        # resume-aware: a loaded checkpoint sets current_epoch past its own
+        # epoch; retraining them from loaded weights is a silent redo, not a
+        # resume
+        for epoch in range(self.current_epoch, self.config.num_epochs):
             self.current_epoch = epoch
 
             # Train
@@ -517,6 +571,7 @@ class CPCTrainer:
         """Save model checkpoint."""
         checkpoint = {
             "epoch": epoch,
+            "loss_version": LOSS_VERSION,
             "model_state_dict": self.model.state_dict(),
             "optimizer_state_dict": self.optimizer.state_dict(),
             "scheduler_state_dict": self.scheduler.state_dict(),
@@ -534,7 +589,11 @@ class CPCTrainer:
 
     def load_checkpoint(self, checkpoint_path: str):
         """Load model checkpoint."""
-        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        # weights_only=False: the checkpoint pickles the whole TrainingConfig
+        # (dataclass object), which the weights-only unpickler refuses — this
+        # crash-looped Arm A's supervisor resume until fixed. Checkpoints are
+        # ours (written by CPCTrainer), so the escape hatch is safe here.
+        checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
 
         self.model.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])

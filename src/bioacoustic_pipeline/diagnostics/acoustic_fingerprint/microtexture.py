@@ -39,7 +39,10 @@ def microtexture(audio, sr):
     if spec.mag.shape[0] > 1:
         deriv = np.maximum(0.0, spec.mag[1:] - spec.mag[:-1]).sum(axis=1)
         d_mean, d_std, d_skew, d_kurt = _moment_stats(deriv)
-        d_max, d_range = float(deriv.max() if deriv.size else 0.0), float(deriv.ptp() if deriv.size else 0.0)
+        d_max, d_range = (
+            float(deriv.max() if deriv.size else 0.0),
+            float(np.ptp(deriv) if deriv.size else 0.0),  # ndarray.ptp removed in numpy 2
+        )
     else:
         d_mean = d_std = d_skew = d_kurt = d_max = d_range = 0.0
     # envelope dynamics (rise/fall rate, range dB, CV, skew)

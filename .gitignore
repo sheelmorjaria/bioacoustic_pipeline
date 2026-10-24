@@ -27,11 +27,28 @@ checkpoints/
 *.safetensors
 *.pkl
 *.npz
+*.npy
+*.pth
+*.joblib
+
+# Downloaded source archives and incomplete transfers
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.tar.bz2
+*.tar.xz
+*.7z
+*.part
+*.partial
 
 # Audio files (in case any end up in the repo)
 *.wav
 *.flac
 *.mp3
+*.ogg
+*.m4a
+*.aiff
 
 # Reports / outputs
 outputs/
@@ -42,6 +59,23 @@ playback_out/
 
 # Claude / agent state (not part of the pipeline)
 .claude/
+.codex/
+.agents/
+
+# Local credentials and environment configuration
+.aws/
+.env
+.env.*
+!.env.example
+!.env.template
+*.pem
+*.key
+
+# Coverage and local test artifacts
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
 
 # IDE / OS
 .idea/

@@ -36,6 +36,13 @@ class Use(str, Enum):
 # Uses computation alone can NEVER authorize — only Track C biology can.
 TRACK_C_ONLY = frozenset({Use.SEMANTIC_VERDICT, Use.ANIMAL_MEANING_CLAIM})
 
+# Uses a caller-supervised model can NEVER have, independent of its
+# allowed_use: caller labels inside training make the representation
+# supervised metric learning, so any structure-discovery use is circular
+# (the model was optimized to produce exactly that structure). A registry
+# edit cannot re-authorize what the supervision semantics forbid.
+CALLER_SUPERVISED_FORBIDDEN = frozenset({Use.TOKENIZE, Use.VERDICT_WEIGHT})
+
 
 class ProvenanceViolation(Exception):
     """Raised when a requested use violates a model's provenance policy."""
@@ -52,9 +59,12 @@ class ModelProvenance:
     applies_to_species: tuple[str, ...] = ()
     source: str = ""
     notes: str = ""
+    contains_caller_supervision: bool = False
 
     def is_allowed(self, use: Use) -> bool:
         u = Use(use)
+        if self.contains_caller_supervision and u in CALLER_SUPERVISED_FORBIDDEN:
+            return False
         return u not in self.forbidden_use and u not in TRACK_C_ONLY and u in self.allowed_use
 
 
@@ -101,6 +111,7 @@ class Firewall:
                 applies_to_species=tuple(m.get("applies_to_species", [])),
                 source=m.get("source", ""),
                 notes=m.get("notes", ""),
+                contains_caller_supervision=bool(m.get("contains_caller_supervision", False)),
             )
 
     # ---- queries ----
@@ -133,6 +144,13 @@ class Firewall:
                 f"(domain={prov.pretraining_domain}, "
                 f"text_supervision={prov.contains_text_supervision})"
             )
+        if prov.contains_caller_supervision and u in CALLER_SUPERVISED_FORBIDDEN:
+            raise ProvenanceViolation(
+                f"use '{u.value}' is FORBIDDEN for caller-supervised "
+                f"'{model_name}' — caller labels inside training make any "
+                f"structure-discovery use circular (supervised metric "
+                f"learning, not self-supervised representation)"
+            )
         if u not in prov.allowed_use:
             raise ProvenanceViolation(
                 f"use '{u.value}' not in the allowed set for '{model_name}': "
@@ -160,6 +178,7 @@ class Firewall:
                 "applies_to_species": list(p.applies_to_species),
                 "source": p.source,
                 "notes": p.notes,
+                "contains_caller_supervision": p.contains_caller_supervision,
             }
             for p in self._registry.values()
         ]

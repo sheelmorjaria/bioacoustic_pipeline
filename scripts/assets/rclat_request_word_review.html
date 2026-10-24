@@ -1,0 +1,27 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Independent wording review</title>
+<style>body{font:17px system-ui;max-width:850px;margin:40px auto;padding:16px;background:#fafafa;color:#14202b}textarea{width:100%;min-height:85px}button,input,select{font:inherit;margin:6px;padding:6px}label{display:block;margin:12px 0}audio{width:100%}.muted{color:#4c5a65}</style>
+<h1>Independent wording review</h1><p>Listen to each recording and transcribe the words you hear. Do not use speech recognition, source scripts, another reviewer's answers, or interpretation labels. Mark uncertainty rather than filling missing words from expectation. Listen to each complete recording. Punctuation and letter case are not scored; preserve the spoken words and contractions.</p>
+<p class="muted">This packet contains an unchanged, fixed-channel waveform for every target. Nothing here supplies the expected transcript. Your work stays in this browser until you export it; no information is sent anywhere. Export both files regularly and return them through the agreed research workflow.</p>
+<div id="progress"></div><h2 id="target"></h2><audio id="audio" controls preload="none"></audio>
+<label>Words heard<textarea id="heard"></textarea></label><label>Status<select id="status"><option value="pending">Pending</option><option value="completed">Completed transcription</option><option value="uncertain">Uncertain words</option><option value="unusable">Unusable recording</option></select></label><label>Optional notes<textarea id="notes"></textarea></label>
+<button id="previous">Previous</button><button id="save">Save this row</button><button id="next">Save and next</button>
+<h2>Reviewer declaration</h2><label>Reviewer pseudonym<input id="reviewer" autocomplete="off"></label><div id="attestations"></div>
+<button id="export_csv">Export review.csv</button><button id="export_metadata">Export metadata.json</button>
+<script>
+const packet=__PACKET_JSON__;
+const fields=['review_id','status','heard_text','notes'];
+const flags=['human_review','independent_review','source_scripts_hidden','production_intentions_hidden','listener_judgments_hidden','model_transcripts_hidden'];
+let rows=packet.items.map(x=>({review_id:x.review_id,status:'pending',heard_text:'',notes:''})),index=0;
+const key='request-word-review:'+packet.packet_id;
+try{const saved=JSON.parse(localStorage.getItem(key));if(saved&&saved.ids===packet.items.map(x=>x.review_id).join('|'))rows=saved.rows;}catch(e){}
+const el=id=>document.getElementById(id);
+flags.forEach(flag=>{const label=document.createElement('label'),box=document.createElement('input');box.type='checkbox';box.id=flag;label.append(box,document.createTextNode(' I confirm: '+flag.replaceAll('_',' ')));el('attestations').append(label);});
+function show(){const r=rows[index];el('target').textContent=r.review_id;el('audio').src=packet.items[index].audio;el('heard').value=r.heard_text;el('notes').value=r.notes;el('status').value=r.status;el('progress').textContent=(index+1)+' / '+rows.length+'; '+rows.filter(r=>r.status!=='pending').length+' reviewed';}
+function save(){rows[index]={review_id:rows[index].review_id,status:el('status').value,heard_text:el('heard').value,notes:el('notes').value};try{localStorage.setItem(key,JSON.stringify({ids:packet.items.map(x=>x.review_id).join('|'),rows}));}catch(e){alert('Local storage unavailable; export your work now.');}}
+function download(name,content,type){const link=document.createElement('a'),url=URL.createObjectURL(new Blob([content],{type}));link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function quote(x){return '"'+String(x).replaceAll('"','""')+'"';}
+el('previous').onclick=()=>{save();index=Math.max(0,index-1);show();};el('save').onclick=()=>{save();show();};el('next').onclick=()=>{save();index=Math.min(rows.length-1,index+1);show();};
+el('export_csv').onclick=()=>{save();download('review.csv',[fields.join(','),...rows.map(r=>fields.map(f=>quote(r[f])).join(','))].join('\n')+'\n','text/csv');};
+el('export_metadata').onclick=()=>{save();const metadata={reviewer_id:el('reviewer').value.trim()};flags.forEach(f=>metadata[f]=el(f).checked);download('metadata.json',JSON.stringify(metadata,null,2)+'\n','application/json');};
+show();
+</script></html>

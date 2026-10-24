@@ -1,0 +1,70 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Independent word-timing review __ROLE__</title>
+<style>body{font:16px system-ui;max-width:1100px;margin:30px auto;padding:0 18px}label{display:inline-block;margin:8px}input,select,button,textarea{font:inherit;padding:6px}input[type=number]{width:145px}canvas{width:100%;height:180px;border:1px solid #ccc}img{width:100%}.target{background:#ffe48c;padding:2px}fieldset{margin:20px 0}textarea{width:95%}.note{color:#444}button{cursor:pointer}#cursor{font-variant-numeric:tabular-nums}</style>
+<h1>Independent word-timing review __ROLE__</h1>
+<p>Listen to the complete utterance and locate the highlighted word occurrence. No model boundaries are shown. Do not inspect the other review or adjudication materials before completing your independent pass. Boundaries may be uncertain: mark that uncertainty rather than inventing precision.</p>
+<p class="note">A word interval is an annotation of its acoustic realization. It is not an exact boundary of linguistic information, comprehension or meaning.</p>
+<label>Your reviewer ID <input id="reviewer" autocomplete="off"></label>
+<label><input id="independent" type="checkbox">I completed this pass independently without seeing the other review.</label>
+<label><input id="hidden" type="checkbox">I did not consult machine-proposed boundaries.</label>
+<p><button id="prev">Previous target</button> <select id="choose"></select> <button id="next">Next target</button></p>
+<h2 id="heading"></h2><p id="transcript"></p><audio id="audio" controls preload="metadata"></audio>
+<p id="cursor">Cursor: not set</p>
+<label>View start (seconds) <input id="start" type="number" min="0" value="0" step="0.05"></label>
+<label>View width (seconds) <input id="width" type="number" min="0.05" value="1" step="0.05"></label>
+<button id="center">Centre view on playback</button>
+<canvas id="wave" width="1400" height="180"></canvas>
+<p>Click the waveform to set a cursor. Zoom with view start/width; use audio and the spectrogram to inspect the target. Selecting the cursor does not itself annotate a boundary.</p>
+<button id="setOnset">Use cursor as onset</button> <button id="setOffset">Use cursor as offset</button>
+<button id="fromPlayback">Use current playback time as cursor</button> <button id="listen">Play annotated interval with 200 ms context</button>
+<fieldset><legend>Your independent annotation</legend>
+<label>Status <select id="status"><option value="">Unreviewed</option><option>supported</option><option>uncertain</option><option>unusable</option></select></label>
+<label>Onset sample <input id="onset_sample" type="number" step="1"></label>
+<label>Offset sample <input id="offset_sample" type="number" step="1"></label>
+<label>Onset uncertainty ± samples <input id="onset_uncertainty_samples" type="number" min="0" step="1"></label>
+<label>Offset uncertainty ± samples <input id="offset_uncertainty_samples" type="number" min="0" step="1"></label>
+<p class="note">Native rate: 16,000 samples/s; 160 samples = 10 ms. Integer sample coordinates do not imply sample-level perceptual certainty. Leave uncertain measurements unsupported.</p>
+<label>Evidence<textarea id="evidence" rows="2" placeholder="Listening and acoustic cues supporting your interval; do not copy model output."></textarea></label>
+<label>Notes<textarea id="notes" rows="2"></textarea></label>
+</fieldset>
+<img id="spectrogram" alt="Full utterance waveform and spectrogram without proposed boundaries">
+<p><button id="csv">Download review CSV</button> <button id="meta">Download reviewer metadata JSON</button></p>
+<p class="note">Drafts are stored in this browser when local storage is available. Download both files before closing. Empty fields remain empty; nothing is sent to a server.</p>
+<script>
+'use strict';
+const D=__DATA__, role='__ROLE__', key='rclat-word-review-v1-'+role;
+const fields=['status','onset_sample','offset_sample','onset_uncertainty_samples','offset_uncertainty_samples','evidence','notes'];
+const E=id=>document.getElementById(id);let index=0,cursor=null,pcm=null,stopAt=null;
+let saved={rows:{},annotator_id:'',independent_review:false,model_boundaries_hidden:false};
+try{const old=localStorage.getItem(key);if(old)saved=JSON.parse(old);}catch(e){}
+E('reviewer').value=saved.annotator_id||'';E('independent').checked=saved.independent_review===true;E('hidden').checked=saved.model_boundaries_hidden===true;
+function persist(){saved.annotator_id=E('reviewer').value;saved.independent_review=E('independent').checked;saved.model_boundaries_hidden=E('hidden').checked;try{localStorage.setItem(key,JSON.stringify(saved));}catch(e){}}
+function record(){const t=D.targets[index],r={target_id:t.target_id};for(const f of fields)r[f]=E(f).value;saved.rows[t.target_id]=r;persist();}
+for(const f of fields)E(f).addEventListener('input',record);
+for(const f of ['reviewer','independent','hidden'])E(f).addEventListener('input',persist);
+function setCursor(n){cursor=Math.max(0,Math.min(pcm.length,Math.round(n)));E('cursor').textContent=`Cursor: ${cursor} samples (${(cursor/16000).toFixed(5)} s)`;draw();}
+function draw(){if(!pcm)return;const canvas=E('wave'),g=canvas.getContext('2d'),w=canvas.width,h=canvas.height;
+let start=Math.max(0,Number(E('start').value)||0),width=Math.max(.05,Number(E('width').value)||1),a=Math.min(pcm.length,Math.floor(start*16000)),b=Math.min(pcm.length,Math.floor((start+width)*16000));
+g.clearRect(0,0,w,h);g.strokeStyle='#aaa';g.beginPath();g.moveTo(0,h/2);g.lineTo(w,h/2);g.stroke();g.strokeStyle='#1761a0';
+for(let p=0;p<w;p++){let lo=a+Math.floor((b-a)*p/w),hi=Math.max(lo+1,a+Math.floor((b-a)*(p+1)/w)),mn=32767,mx=-32768;for(let j=lo;j<Math.min(hi,pcm.length);j++){mn=Math.min(mn,pcm[j]);mx=Math.max(mx,pcm[j]);}if(lo<pcm.length){g.beginPath();g.moveTo(p,h/2-mx/32768*h*.45);g.lineTo(p,h/2-mn/32768*h*.45);g.stroke();}}
+if(cursor!==null&&cursor>=a&&cursor<=b&&b>a){const p=(cursor-a)/(b-a)*w;g.strokeStyle='#c22';g.beginPath();g.moveTo(p,0);g.lineTo(p,h);g.stroke();}
+canvas.dataset.a=a;canvas.dataset.b=b;}
+function load(){const t=D.targets[index],r=saved.rows[t.target_id]||{};E('choose').value=index;E('heading').textContent=`${index+1}/${D.targets.length}: ${t.target_id} — word ${t.word_index+1}`;
+E('transcript').replaceChildren();t.words.forEach((word,i)=>{const node=document.createElement(i===t.word_index?'mark':'span');node.textContent=word+' ';if(i===t.word_index)node.className='target';E('transcript').append(node);});
+E('audio').src='audio/'+t.utterance_id+'.wav';E('spectrogram').src='images/'+t.utterance_id+'.png';
+const bytes=Uint8Array.from(atob(t.pcm_base64),c=>c.charCodeAt(0)),view=new DataView(bytes.buffer);pcm=new Int16Array(bytes.length/2);for(let i=0;i<pcm.length;i++)pcm[i]=view.getInt16(2*i,true);
+for(const f of fields)E(f).value=r[f]||'';E('start').value=0;E('width').value=(pcm.length/16000).toFixed(5);cursor=null;E('cursor').textContent='Cursor: not set';stopAt=null;draw();}
+D.targets.forEach((t,i)=>{const option=document.createElement('option');option.value=i;option.textContent=t.target_id;E('choose').append(option);});
+function go(i){record();E('audio').pause();index=Math.max(0,Math.min(D.targets.length-1,i));load();}
+E('prev').onclick=()=>go(index-1);E('next').onclick=()=>go(index+1);E('choose').onchange=e=>go(Number(e.target.value));
+E('start').oninput=draw;E('width').oninput=draw;E('center').onclick=()=>{E('start').value=Math.max(0,E('audio').currentTime-Number(E('width').value)/2);draw();};
+E('wave').onclick=e=>{const rect=e.currentTarget.getBoundingClientRect(),a=Number(e.currentTarget.dataset.a),b=Number(e.currentTarget.dataset.b);setCursor(a+(b-a)*(e.clientX-rect.left)/rect.width);};
+E('fromPlayback').onclick=()=>setCursor(E('audio').currentTime*16000);
+E('setOnset').onclick=()=>{if(cursor!==null){E('onset_sample').value=cursor;record();}};
+E('setOffset').onclick=()=>{if(cursor!==null){E('offset_sample').value=cursor;record();}};
+E('listen').onclick=()=>{const a=Number(E('onset_sample').value),b=Number(E('offset_sample').value);if(!E('onset_sample').value||!E('offset_sample').value||a>=b)return;E('audio').currentTime=Math.max(0,a/16000-.2);stopAt=Math.min(pcm.length/16000,b/16000+.2);E('audio').play();};
+E('audio').addEventListener('timeupdate',()=>{if(stopAt!==null&&E('audio').currentTime>=stopAt){E('audio').pause();stopAt=null;}});
+function download(name,text,type){const url=URL.createObjectURL(new Blob([text],{type})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+E('csv').onclick=()=>{record();const cols=['target_id',...fields],quote=v=>'"'+String(v??'').replaceAll('"','""')+'"';const lines=[cols.map(quote).join(',')];for(const t of D.targets){const r=saved.rows[t.target_id]||{target_id:t.target_id};lines.push(cols.map(c=>quote(r[c]||'')).join(','));}download('review_'+role+'.csv',lines.join('\r\n')+'\r\n','text/csv');};
+E('meta').onclick=()=>{persist();download('reviewer_'+role+'.json',JSON.stringify({role,annotator_id:saved.annotator_id,independent_review:saved.independent_review,model_boundaries_hidden:saved.model_boundaries_hidden,exported_at_utc:new Date().toISOString()},null,2),'application/json');};
+load();
+</script></html>

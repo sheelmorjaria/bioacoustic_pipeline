@@ -300,8 +300,14 @@ class TCNAutoregressive(nn.Module):
             dropout=dropout,
         )
 
-        # Receptive field calculation
-        self.receptive_field = 1 + 2 * (2**num_layers - 1) * (kernel_size - 1) // 2
+        # Receptive field: each TemporalBlock applies TWO dilated causal convs,
+        # so layer l contributes 2*(kernel_size-1)*2**l frames. (The previous
+        # formula assumed one conv per block and undercounted ~2x — caught by
+        # the §45 streaming-consistency test, which failed at exactly the
+        # truncation the wrong bound allowed.)
+        self.receptive_field = 1 + sum(
+            2 * (kernel_size - 1) * 2**layer for layer in range(num_layers)
+        )
 
         logger.info(
             f"TCNAutoregressive: d_model={d_model}, num_layers={num_layers}, "

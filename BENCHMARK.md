@@ -2182,3 +2182,73 @@ one. WIN floor ~30–40 ms (fingerprint spectral estimation needs samples). Ceil
 
 
 
+
+## 45. Caller-specific CPC on Egyptian fruit bats — both arms vs the 44-D fingerprint (2026-10-15)
+
+**Question.** Does a learned CPC representation — self-supervised (`bat_cpc_v2`, caller labels
+mechanically excluded from training via `drop_labels=True` through the stock `CPCTrainer`) or
+caller-conditioned (`bat_cpc_caller`, supervised metric learning, probe/retrieval-only by
+firewall) — beat the 44-D acoustic fingerprint for caller identification on the public
+archive.org corpus (91,080 bouts; protocol on the 41 identified callers / 39,147 bouts;
+negative Emitter codes are dataset sentinels, excluded)? Adjudication is pre-registered as a
+**paired ΔEER bootstrap**: identical recordings, identical pair sets, identical resample
+indices for both arms — CI on the difference, not two CIs to eyeball.
+Script: `scripts/train_bat_cpc.py`, `scripts/train_bat_cpc_caller.py`,
+`scripts/bat_caller_cpc_eval.py` → `outputs/bat_caller_cpc.json`.
+
+**Result (4,652 file-held-out test bouts, 10 held-out callers; chance: EER 0.5, probe 1/31≈0.032,
+few-shot 0.1).**
+
+| arm | EER [95% CI] | probe macro-F1 | few-shot kNN / proto (held-out callers) |
+|---|---|---|---|
+| fingerprint (44-D) | 0.472 [0.453, 0.492] | **0.233** | 0.117 / 0.075 |
+| `bat_cpc_v2` (self-sup) | 0.436 [0.415, 0.460] | 0.080 | 0.175 / 0.123 |
+| `bat_cpc_caller` (supervised)† | 0.451 [0.421, 0.464] | 0.167 | **0.193 / 0.193** |
+| fingerprint+`bat_cpc_v2` | 0.423 [0.410, 0.453] | 0.261 | 0.245 / 0.143 |
+| fingerprint+`bat_cpc_caller` † | **0.421** [0.397, 0.439] | **0.280** | **0.251** / 0.150 |
+
+Paired ΔEER (`bat_cpc_v2` − fingerprint) = **−0.036 [−0.059, −0.009]** — the whole interval is
+below zero, so the pre-registered rule fires. Block-grouped robustness (filename-block proxy):
+fingerprint 0.468, `bat_cpc_v2` 0.456 — the small edge persists. The supervised-derived `fingerprint+bat_cpc_caller` fusion
+(† — audio-only UNK-path Arm B features; probe/retrieval use) is the best arm on every
+metric: stacking supervised caller-CPC on the fingerprint lifts probe 0.233→0.280 and
+few-shot 0.117→0.251, and gives the lowest, tightest EER. Supervised caller-CPC adds
+variance the expert features lack — reported as a supervised-derived result, never as
+self-supervised evidence.
+
+Honest caveats (read before citing any number):
+1. **Everything is near chance on EER** (0.42–0.47 vs 0.5): whole-bout caller identity is
+   acoustically weak on this corpus; channel/session variance dominates. The paired ΔEER win
+   is real but small — the configuration's usefulness for a caller-ID endpoint is marginal,
+   and "CI-separated" must not be inflated into "solves caller ID".
+2. **The probe reverses the EER ordering**: the fingerprint's 44 interpretable features are 3×
+   better than CPC at linear caller separability (0.233 vs 0.080); CPC wins the pairwise
+   verification metric and held-out few-shot. The two representations carry *different*
+   caller signal — which is exactly what the concat arm dominating nearly every cell confirms
+   (complementary variance).
+3. **Arm B is circular for structure claims** by construction (caller labels in the loss): its
+   numbers are diagnostics of supervised metric learning on bat acoustics, never evidence for
+   caller-structure claims; firewall blocks embedding/tokenize/verdict_weight regardless of
+   registry edits.
+4. The block-group robustness check uses numeric-id filename blocks as a recording-group
+   **proxy** — the corpus has no session column. It is reported, not adjudicated on.
+5. Training-loss note (post-hoc, 2026-10-15): the §45 CPC checkpoints were
+   trained with a negative sampler that could include the exact positive
+   target. The reported downstream comparisons describe those checkpoints
+   under that legacy objective. Because the collision distortion scales with
+   the positive logit, the shared defect does not establish equal effects
+   across CPC arms or predict their ranking after corrected training. §46
+   uses the corrected objective (positive-exclusion in both pool branches +
+   valid-anchor reduction); results from the two objective versions are kept
+   distinct.
+6. Operational: trained on XPU (Intel Arc B60); `xpu:0` proved unstable under sustained load
+   (xe exec-queue resets — supervised+resumable training was the mitigation), `xpu:1` ran
+   40+40 epochs fault-free.
+
+**Verdict (read carefully, do not overclaim).** The pre-registered paired-ΔEER rule fires
+(−0.036, CI excluding zero), so this tested configuration is *promotable for the
+verification-style caller-ID endpoint* — narrowly. But the fingerprint remains the better
+linear-probe representation, neither representation is strong in absolute terms (EER ≈ chance),
+and the fingerprint+CPC concatenation is the only configuration that improves every metric at
+once. Do not promote the standalone CPC as the caller-ID representation; do consider the
+concat. Caller identity is acoustic metadata: NOT verdict evidence, NOT meaning.

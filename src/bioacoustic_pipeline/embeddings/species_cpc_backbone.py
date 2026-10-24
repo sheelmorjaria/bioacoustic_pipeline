@@ -15,6 +15,7 @@ from pathlib import Path
 import numpy as np
 
 from bioacoustic_pipeline.embeddings.backbones import Backbone
+from bioacoustic_pipeline.utils.devices import resolve_device
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -85,9 +86,10 @@ class SpeciesCPCBackbone(Backbone):
             self._model.load_state_dict(sd, strict=False)
             self._model.eval()
             # Use the available accelerator + keep model/input on the same device
-            # (mirrors CPCBackbone: avoids CUDA/CPU input-vs-weight mismatches).
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            self._model = self._model.to(device)
+            # (mirrors CPCBackbone: avoids device input-vs-weight mismatches).
+            # resolve_device() also sees XPU — the old cuda-else-cpu idiom ran
+            # CPU silently on Intel-GPU machines.
+            self._model = self._model.to(resolve_device())
         except Exception as exc:  # noqa: BLE001
             self._err = f"{type(exc).__name__}: {exc}"
 

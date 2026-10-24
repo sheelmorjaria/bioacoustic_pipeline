@@ -1,14 +1,27 @@
 {
-  "_comment": "Ethological firewall registry. Parsed by embeddings/firewall.py and ingestion/manifest.py at load time. A model absent from this file, or requested for a forbidden_use, must hard-fail. text_supervision => retrieval-only; no model may do semantic_verdict (Track C biology only).",
-  "track_c_only_uses": ["semantic_verdict", "animal_meaning_claim"],
+  "_comment": "Ethological firewall registry. Parsed by embeddings/firewall.py and ingestion/manifest.py at load time. A model absent from this file, or requested for a forbidden_use, must hard-fail. text_supervision => retrieval-only; contains_caller_supervision => probe/retrieval only (never tokenize/verdict_weight \u2014 circularity); no model may do semantic_verdict (Track C biology only).",
+  "track_c_only_uses": [
+    "semantic_verdict",
+    "animal_meaning_claim"
+  ],
   "models": {
     "human_cpc_phonetic": {
       "pretraining_domain": "human_speech",
       "contains_human_speech": true,
       "contains_text_supervision": false,
-      "allowed_use": ["embedding", "probe", "tokenize"],
-      "forbidden_use": ["verdict_weight", "semantic_verdict", "animal_meaning_claim"],
-      "applies_to_species": ["human"],
+      "allowed_use": [
+        "embedding",
+        "probe",
+        "tokenize"
+      ],
+      "forbidden_use": [
+        "verdict_weight",
+        "semantic_verdict",
+        "animal_meaning_claim"
+      ],
+      "applies_to_species": [
+        "human"
+      ],
       "source": "self-supervised CPC on LibriSpeech",
       "notes": "within-corpus human adapter; do NOT transfer to animals"
     },
@@ -16,18 +29,32 @@
       "pretraining_domain": "human_speech",
       "contains_human_speech": true,
       "contains_text_supervision": false,
-      "allowed_use": ["tokenize"],
-      "forbidden_use": ["semantic_verdict", "animal_meaning_claim"],
-      "applies_to_species": ["human"],
+      "allowed_use": [
+        "tokenize"
+      ],
+      "forbidden_use": [
+        "semantic_verdict",
+        "animal_meaning_claim"
+      ],
+      "applies_to_species": [
+        "human"
+      ],
       "notes": "acoustic similarity classes, NOT word identity (Semantic Ceiling)"
     },
     "bat_vqvae": {
       "pretraining_domain": "egyptian_fruit_bat",
       "contains_human_speech": false,
       "contains_text_supervision": false,
-      "allowed_use": ["tokenize"],
-      "forbidden_use": ["semantic_verdict", "animal_meaning_claim"],
-      "applies_to_species": ["bat"],
+      "allowed_use": [
+        "tokenize"
+      ],
+      "forbidden_use": [
+        "semantic_verdict",
+        "animal_meaning_claim"
+      ],
+      "applies_to_species": [
+        "bat"
+      ],
       "source": "SyntacticVQVAE trained on bat_cpc latents (256 codes, ~70% utilized)",
       "notes": "acoustic-similarity classes on Egyptian fruit bat calls; NOT meaning (Semantic Ceiling)"
     },
@@ -35,54 +62,156 @@
       "pretraining_domain": "egyptian_fruit_bat",
       "contains_human_speech": false,
       "contains_text_supervision": false,
-      "allowed_use": ["embedding", "probe", "tokenize"],
-      "forbidden_use": ["semantic_verdict", "animal_meaning_claim"],
-      "applies_to_species": ["bat"],
+      "allowed_use": [
+        "embedding",
+        "probe",
+        "tokenize"
+      ],
+      "forbidden_use": [
+        "semantic_verdict",
+        "animal_meaning_claim"
+      ],
+      "applies_to_species": [
+        "bat"
+      ],
       "notes": "self-supervised CPC on Egyptian fruit bat vocalizations"
+    },
+    "bat_cpc_v2": {
+      "pretraining_domain": "egyptian_fruit_bat",
+      "contains_human_speech": false,
+      "contains_text_supervision": false,
+      "contains_caller_supervision": false,
+      "allowed_use": [
+        "embedding",
+        "probe",
+        "tokenize"
+      ],
+      "forbidden_use": [
+        "semantic_verdict",
+        "animal_meaning_claim",
+        "verdict_weight"
+      ],
+      "applies_to_species": [
+        "bat"
+      ],
+      "source": "self-supervised CPC retrained from scratch on the public archive.org corpus (91080 bouts); trained via scripts/train_bat_cpc.py with labels mechanically excluded (drop_labels=True through the stock CPCTrainer)",
+      "notes": "replaces lost bat_cpc weights with fresh, fully-specified provenance; caller labels NEVER in training"
+    },
+    "bat_cpc_caller": {
+      "pretraining_domain": "egyptian_fruit_bat",
+      "contains_human_speech": false,
+      "contains_text_supervision": false,
+      "contains_caller_supervision": true,
+      "allowed_use": [
+        "probe",
+        "retrieval"
+      ],
+      "forbidden_use": [
+        "embedding",
+        "tokenize",
+        "verdict_weight",
+        "semantic_verdict",
+        "animal_meaning_claim"
+      ],
+      "applies_to_species": [
+        "bat"
+      ],
+      "source": "caller-conditioned CPC (CallerConditionedCPC): caller IDs inside the contrastive loss; trained via scripts/train_bat_cpc_caller.py",
+      "notes": "supervised metric learning, NOT self-supervised \u2014 can never be evidence for caller-structure claims (circular); verification/retrieval instrument only"
     },
     "marmoset_cpc": {
       "pretraining_domain": "common_marmoset",
       "contains_human_speech": false,
       "contains_text_supervision": false,
-      "allowed_use": ["embedding", "probe", "tokenize"],
-      "forbidden_use": ["semantic_verdict", "animal_meaning_claim"],
-      "applies_to_species": ["marmoset"],
+      "allowed_use": [
+        "embedding",
+        "probe",
+        "tokenize"
+      ],
+      "forbidden_use": [
+        "semantic_verdict",
+        "animal_meaning_claim"
+      ],
+      "applies_to_species": [
+        "marmoset"
+      ],
       "notes": "self-supervised CPC on common marmoset vocalizations"
     },
     "biomae": {
       "pretraining_domain": "egyptian_fruit_bat",
       "contains_human_speech": false,
       "contains_text_supervision": false,
-      "allowed_use": ["embedding", "probe", "affect"],
+      "allowed_use": [
+        "embedding",
+        "probe",
+        "affect"
+      ],
       "forbidden_use": [],
-      "applies_to_species": ["bat"]
+      "applies_to_species": [
+        "bat"
+      ]
     },
     "aves": {
       "pretraining_domain": "multi_taxa_bioacoustics",
       "contains_human_speech": true,
       "contains_text_supervision": false,
-      "allowed_use": ["embedding", "probe"],
-      "forbidden_use": ["semantic_verdict", "animal_meaning_claim"],
-      "applies_to_species": ["bat", "marmoset", "human", "dolphin", "corvid"],
+      "allowed_use": [
+        "embedding",
+        "probe"
+      ],
+      "forbidden_use": [
+        "semantic_verdict",
+        "animal_meaning_claim"
+      ],
+      "applies_to_species": [
+        "bat",
+        "marmoset",
+        "human",
+        "dolphin",
+        "corvid"
+      ],
       "source": "esp-aves2-eat-bio (EAT, self-supervised); loads via avex"
     },
     "perch_2": {
       "pretraining_domain": "multi_taxa_bioacoustics",
       "contains_human_speech": false,
       "contains_text_supervision": false,
-      "allowed_use": ["embedding", "probe"],
-      "forbidden_use": ["semantic_verdict", "animal_meaning_claim"],
-      "applies_to_species": ["bat", "marmoset", "human", "dolphin", "corvid"],
+      "allowed_use": [
+        "embedding",
+        "probe"
+      ],
+      "forbidden_use": [
+        "semantic_verdict",
+        "animal_meaning_claim"
+      ],
+      "applies_to_species": [
+        "bat",
+        "marmoset",
+        "human",
+        "dolphin",
+        "corvid"
+      ],
       "source": "Perch 2.0; not on HF (Google/TF distribution)",
-      "notes": "adapter slot — requires separate loader"
+      "notes": "adapter slot \u2014 requires separate loader"
     },
     "naturelm_audio": {
       "pretraining_domain": "human_text_and_audio",
       "contains_human_speech": true,
       "contains_text_supervision": true,
-      "allowed_use": ["retrieval", "annotation_suggestion"],
-      "forbidden_use": ["verdict_weight", "semantic_verdict", "animal_meaning_claim", "tokenize", "embedding"],
-      "applies_to_species": ["human"],
+      "allowed_use": [
+        "retrieval",
+        "annotation_suggestion"
+      ],
+      "forbidden_use": [
+        "verdict_weight",
+        "semantic_verdict",
+        "animal_meaning_claim",
+        "tokenize",
+        "embedding"
+      ],
+      "applies_to_species": [
+        "human"
+      ],
       "source": "EarthSpeciesProject/NatureLM-audio",
       "notes": "text supervision = hidden linguistic leakage; retrieval-only"
     },
@@ -90,8 +219,17 @@
       "pretraining_domain": "none (deterministic handcrafted descriptors)",
       "contains_human_speech": false,
       "contains_text_supervision": false,
-      "allowed_use": ["embedding", "affect", "tokenize", "annotation_suggestion"],
-      "forbidden_use": ["semantic_verdict", "animal_meaning_claim", "verdict_weight"],
+      "allowed_use": [
+        "embedding",
+        "affect",
+        "tokenize",
+        "annotation_suggestion"
+      ],
+      "forbidden_use": [
+        "semantic_verdict",
+        "animal_meaning_claim",
+        "verdict_weight"
+      ],
       "applies_to_species": [],
       "notes": "physics-grounded interpretable descriptor; no training data -> no leakage; the species-agnostic (all-species) view"
     },
@@ -99,8 +237,16 @@
       "pretraining_domain": "none (deterministic DSP transform: STFT + mel filterbank)",
       "contains_human_speech": false,
       "contains_text_supervision": false,
-      "allowed_use": ["embedding", "tokenize", "annotation_suggestion"],
-      "forbidden_use": ["semantic_verdict", "animal_meaning_claim", "verdict_weight"],
+      "allowed_use": [
+        "embedding",
+        "tokenize",
+        "annotation_suggestion"
+      ],
+      "forbidden_use": [
+        "semantic_verdict",
+        "animal_meaning_claim",
+        "verdict_weight"
+      ],
       "applies_to_species": [],
       "notes": "time-frequency acoustic image; no training data -> no leakage; all-species; the bridge layer between raw audio and every other representation"
     },
@@ -108,11 +254,64 @@
       "pretraining_domain": "human_speech",
       "contains_human_speech": true,
       "contains_text_supervision": false,
-      "allowed_use": ["embedding", "affect"],
-      "forbidden_use": ["semantic_verdict", "animal_meaning_claim", "verdict_weight", "tokenize"],
-      "applies_to_species": ["human"],
+      "allowed_use": [
+        "embedding",
+        "affect"
+      ],
+      "forbidden_use": [
+        "semantic_verdict",
+        "animal_meaning_claim",
+        "verdict_weight",
+        "tokenize"
+      ],
+      "applies_to_species": [
+        "human"
+      ],
       "source": "beta-VAE trained on LibriSpeech CPC latents (256D -> 16D, beta=4.0)",
       "notes": "affective dual-stream complement to VQ-VAE; disentangled prosodic latent; human-only"
+    },
+    "marmoset_cpc_v2": {
+      "pretraining_domain": "common_marmoset",
+      "contains_human_speech": false,
+      "contains_text_supervision": false,
+      "contains_caller_supervision": false,
+      "allowed_use": [
+        "embedding",
+        "probe",
+        "tokenize"
+      ],
+      "forbidden_use": [
+        "semantic_verdict",
+        "animal_meaning_claim",
+        "verdict_weight"
+      ],
+      "applies_to_species": [
+        "marmoset"
+      ],
+      "source": "self-supervised CPC (fixed recipe: negative cap) on InfantMarmosetsVox interval-windowed calls (audio_16k, 31835 windowable calls, 10 callers); \u00a746 P1 Arm A",
+      "notes": "retests the 'marmoset_cpc degenerate' prior with the corrected recipe; caller labels never in training"
+    },
+    "marmoset_cpc_multihead": {
+      "pretraining_domain": "common_marmoset",
+      "contains_human_speech": false,
+      "contains_text_supervision": false,
+      "contains_caller_supervision": true,
+      "allowed_use": [
+        "probe",
+        "retrieval"
+      ],
+      "forbidden_use": [
+        "embedding",
+        "tokenize",
+        "verdict_weight",
+        "semantic_verdict",
+        "animal_meaning_claim"
+      ],
+      "applies_to_species": [
+        "marmoset"
+      ],
+      "source": "SharedEncoderMultiHeadCPC on InfantMarmosetsVox: shared grammar + per-caller prediction heads; REPLACES the planned marmoset_cpc_caller arm (consolidation); also the Track-C cross-perplexity instrument",
+      "notes": "caller labels define the heads \u2014 supervised metric learning; never verdict evidence (circular); cross_perplexity is for playback-stimulus selection (Track C prep)"
     }
   }
 }

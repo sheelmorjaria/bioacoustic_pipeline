@@ -49,8 +49,17 @@ def run(
     out_dir: str | Path | None = None,
     seed: int = 0,
     registry=None,
+    metadata_fn=None,
 ) -> PipelineResult:
-    """Canonical typed pipeline run. Returns a :class:`PipelineResult`."""
+    """Canonical typed pipeline run. Returns a :class:`PipelineResult`.
+
+    ``metadata_fn(path, segment) -> dict | None`` attaches per-file caller
+    annotations (emitter/addressee/context — e.g. from
+    ``ingestion.labeled_corpus.annotation_metadata_fn``) to dual-stream events
+    and segment records. Metadata rides ALONGSIDE the analysis: it never
+    reaches a verdict axis (test_labeled_metadata_wiring asserts report
+    equality with and without it).
+    """
     cfg = ConfigResolver.resolve(
         species=species,
         dataset=dataset,
@@ -89,21 +98,27 @@ def run(
         )
         n_segments += len(segs)
         ds = build_dual_stream(
-            segs, tokenizer=tokenizer if tk_available else None, fingerprint_fn=fp_fn
+            segs,
+            tokenizer=tokenizer if tk_available else None,
+            fingerprint_fn=fp_fn,
+            metadata_fn=(lambda seg: metadata_fn(str(path), seg)) if metadata_fn else None,
         )
         seq: list[int] = []
         for e in ds:
             events.append(e)
-            segments_records.append(
-                {
-                    "file_idx": n_loaded - 1,
-                    "segment_id": e.segment_id,
-                    "start_ms": round(float(e.start_ms), 4),
-                    "end_ms": round(float(e.end_ms), 4),
-                    "boundary_type": e.boundary_type,
-                    "confidence": round(float(e.boundary_confidence), 4),
-                }
-            )
+            record = {
+                "file_idx": n_loaded - 1,
+                "segment_id": e.segment_id,
+                "start_ms": round(float(e.start_ms), 4),
+                "end_ms": round(float(e.end_ms), 4),
+                "boundary_type": e.boundary_type,
+                "confidence": round(float(e.boundary_confidence), 4),
+            }
+            if metadata_fn is not None and getattr(e, "emitter", None) is not None:
+                record["emitter"] = e.emitter
+                record["addressee"] = e.addressee
+                record["context"] = e.context
+            segments_records.append(record)
             if e.vq_token != -1:
                 tokens.append(e.vq_token)
                 boundary_types.append(e.boundary_type)
